@@ -12,10 +12,10 @@ DIR_OF = {"D": 0, "U": 1, "L": 2, "R": 3}
 
 src = open("src/main.c").read()
 block = src[src.index("static const Level LEVELS"):src.index("#define NUM_LEVELS")]
-headers = re.findall(r'\{\s*"([^"]+)",\s*"([^"]+)",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\w+),', block)
+headers = re.findall(r'\{\s*"([^"]+)",\s*"([^"]+)",\s*(\d+),\s*(\d+),\s*(\d+),\s*([\w |]+),', block)
 rows = re.findall(r'"([ #IH T.,xDGgKcCAELBRrSowkvsM1234]{15})"', block)
-FLAGMAP = {"0": 0, "LF_CANDLES": 1, "LF_RUNE": 2, "3": 3}
-assert len(rows) == 10 * len(headers) and len(headers) == 9, (len(headers), len(rows))
+FLAGMAP = {"0": 0, "LF_CANDLES": 1, "LF_RUNE": 2, "LF_CANDLES | LF_RUNE": 3, "3": 3}
+assert len(rows) == 10 * len(headers) and len(headers) == 14, (len(headers), len(rows))
 LEVELS = []
 for i, (name, chap, ch, rad, oil, flg) in enumerate(headers):
     LEVELS.append({"name": name, "chapter": int(ch), "radius": int(rad), "oil": int(oil),
@@ -235,19 +235,21 @@ class Sim:
             t, ex, ey = e[0], e[1], e[2]
             if t == 0:  # wraith
                 md = abs(ex - px) + abs(ey - py)
-                if md == 1:
-                    e[1], e[2] = px, py; died = True
-                elif light[ey][ex] >= 2:
+                if light[ey][ex] >= 2:
+                    # repelled by light: flee to a strictly better cell (darker, or
+                    # as dark and farther off); if none improves, it cowers in place
+                    cl = light[ey][ex]
                     best, bl, bd = -1, 99, -1
                     for dd in range(4):
                         wx, wy = ex + DX[dd], ey + DY[dd]
                         if not (0 <= wx < MW and 0 <= wy < MH) or self._blocked(st2, wx, wy, braz_t, en): continue
+                        if wx == px and wy == py: continue
                         l = light[wy][wx]; dist = abs(wx - px) + abs(wy - py)
                         if l < bl or (l == bl and dist > bd): best, bl, bd = dd, l, dist
-                    if best >= 0 and bl < 2:
+                    if best >= 0 and (bl < cl or (bl == cl and bd > md)):
                         e[1] += DX[best]; e[2] += DY[best]
-                    else:
-                        e[4] = 0; score += 100
+                elif md == 1:
+                    e[1], e[2] = px, py; died = True
                 else:
                     # BFS through darkness
                     from collections import deque
@@ -379,6 +381,7 @@ def stage_search(sim, st0, target=None, cap=800000, mode="any"):
         if mode == "seq": return st[15] > seqp0
         if mode == "rune": return st[13]
         if mode == "candles": return sim.candles <= st[6]
+        if mode == "candles1": return len(sim.candles - st[6]) < unlit0
         if solved: return True
         if target is not None: return target not in st[4]
         if len(st[4]) < nrel0: return True
@@ -387,6 +390,26 @@ def stage_search(sim, st0, target=None, cap=800000, mode="any"):
         if st[15] > seqp0: return True
         if len(sim.candles - st[6]) < unlit0: return True
         return False
+    # Wall-aware distance fields (BFS over non-wall cells, gates treated as
+    # passable). Manhattan distance floods walled-off chambers whose
+    # straight-line distance looks close; fields keep A* focused on the real
+    # route, which matters in big enemy-product state spaces (L14).
+    def bfs_field(tgt):
+        fld = {tgt: 0}
+        frontier = [tgt]
+        while frontier:
+            nxt = []
+            for cx, cy in frontier:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    np_ = (cx + dx, cy + dy)
+                    if np_ in fld or np_ in sim.walls: continue
+                    if not (0 <= np_[0] < MW and 0 <= np_[1] < MH): continue
+                    fld[np_] = fld[(cx, cy)] + 1
+                    nxt.append(np_)
+            frontier = nxt
+        return fld
+    tfield = bfs_field(target) if target is not None else None
+    cfields = [bfs_field(c) for c in (sim.candles - st0[6])] if mode in ("candles", "candles1") else None
     def push_h(st, plates):
         px, py = st[0], st[1]
         best = 999
@@ -411,10 +434,13 @@ def stage_search(sim, st0, target=None, cap=800000, mode="any"):
             return min(abs(px - x) + abs(py - y) for x, y in sim.levers) if sim.levers else 0
         if mode == "rune":
             return abs(px - sim.rune[0]) + abs(py - sim.rune[1]) if sim.rune else 0
-        if mode == "candles":
+        if mode in ("candles", "candles1"):
+            if cfields: return min(f.get((px, py), 80) for f in cfields)
             un = sim.candles - st[6]
             return min((abs(px - x) + abs(py - y) for x, y in un), default=0)
-        if target is not None: return abs(px - target[0]) + abs(py - target[1])
+        if target is not None:
+            if tfield is not None: return tfield.get((px, py), 80)
+            return abs(px - target[0]) + abs(py - target[1])
         if st[4]: return min(abs(px - x) + abs(py - y) for x, y in st[4])
         return abs(px - sim.door[0]) + abs(py - sim.door[1])
     pq = [(h(st0) * 2, 0, 0, st0, 0)]
@@ -507,7 +533,7 @@ def solve_staged(idx):
                 path += p; total_gain += gain
                 continue
             if (sim.flags & 1) and not sim.candles <= st[6]:
-                res = stage_search(sim, st, mode="candles")
+                res = stage_search(sim, st, mode="candles1")
                 if res is None: return None, f"candle stage {stage_no} failed"
                 p, st, gain, solved = res
                 path += p; total_gain += gain
@@ -531,7 +557,7 @@ def main():
     cache = {}
     try: cache = json.load(open("qa/solutions.json"))
     except Exception: pass
-    for i in range(9):
+    for i in range(len(LEVELS)):
         if str(i) in cache:
             sol = (cache[str(i)]["path"], cache[str(i)]["score"]); info = "cached"
             print(f"LEVEL {i+1} ({LEVELS[i]['name']}): cached, {len(sol[0])} actions, score +{sol[1]}")
@@ -539,7 +565,7 @@ def main():
             total_actions += len(sol[0]); total_score += sol[1]
             per_level.append(dict(level=i + 1, name=LEVELS[i]["name"], actions=len(sol[0]), score=sol[1]))
             continue
-        if i in (4, 7, 8):
+        if i in (4, 7, 8, 12, 13):
             sol, info = solve_staged(i)
             if sol is None:
                 sol, info2 = solve_level(i); info += "; whole: " + info2

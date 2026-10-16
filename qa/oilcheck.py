@@ -6,7 +6,7 @@ sys.path.insert(0, ".")
 import solve
 
 cache = json.load(open("qa/solutions.json"))
-for i in range(9):
+for i in range(len(solve.LEVELS)):
     lv = solve.LEVELS[i]
     sim = solve.Sim(lv)
     path = cache[str(i)]["path"]

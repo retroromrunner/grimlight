@@ -216,9 +216,10 @@ static void noise_hit(int vol, int frames, int rough){
 static const s8 CHORD_ROOT[4] = {45, 41, 38, 40};
 static const s8 CHORD_TONES[4][4] = { {57,60,64,69}, {53,57,60,65}, {50,53,57,62}, {52,56,59,64} };
 static const s8 LEAD_PAT[16] = {0,-1,1,-1,2,-1,3,-1, 2,-1,1,2,-1,-1,1,-1};
-static const s8 JINGLE_NOTES[4] = {69, 76, 81, 88};
+// exit fanfare: a bright square-wave victory figure on the lead channel, bells beneath
+static const s8 FANF_NOTES[8] = {69, 73, 76, 81, 76, 81, 85, 88};
 static int mus_step = 0, mus_timer = 0, sfx_duck = 0;
-static int jingle = 0, jingle_t = 0;
+static int fanf = 0, fanf_t = 0;
 static int doorfx = 0, doorfx_t = 0;
 static int wind_vol = 1, wind_timer = 0;
 static void audio_update(void){
@@ -230,7 +231,13 @@ static void audio_update(void){
         if (doorfx == 1){ bell_toll(57, 1); sq_note(2, 33, 12, 3, 44); }
         doorfx--; doorfx_t = 6;
     }
-    if (jingle > 0 && --jingle_t <= 0){ int n = JINGLE_NOTES[4 - jingle]; bell_toll(n, 1); sq_note(2, n - 24, 8, 2, 26); jingle--; jingle_t = 9; }
+    if (fanf > 0 && --fanf_t <= 0){
+        int i = 8 - fanf;
+        sq_note(1, FANF_NOTES[i], 13, 2, 30);
+        if (i == 0 || i == 4) bell_toll(45, 1);
+        if (i == 7) bell_toll(57, 1);
+        fanf--; fanf_t = 7;
+    }
     // wind: slow wandering noise on ch4 (only when no push/step sfx this frame)
     if (--wind_timer <= 0){
         wind_timer = 14 + (int)(rnd() % 20);
@@ -260,8 +267,8 @@ static void sfx_toggle(void){ sq_note(1, 72, 8, 1, 8); sfx_duck = 6; }
 static void sfx_gate(void){ noise_hit(7, 10, 1); sq_note(1, 41, 9, 3, 16); sfx_duck = 8; }
 static void sfx_lever(void){ noise_hit(9, 8, 1); sq_note(1, 50, 11, 3, 12); bell_toll(81, 3); sfx_duck = 10; }
 static void sfx_oilpick(void){ sq_note(1, 69, 10, 2, 10); bell_toll(76, 2); sfx_duck = 8; }
-// exit jingle: a rising bell arpeggio sequenced over ~36 frames (state lives by the music globals)
-static void sfx_exit(void){ jingle = 4; jingle_t = 0; sfx_duck = 44; bell_toll(45, 1); }
+// exit fanfare: an 8-note victory figure sequenced in audio_update over ~56 frames
+static void sfx_exit(void){ fanf = 8; fanf_t = 0; sfx_duck = 60; }
 // a great door grinding open (sequenced in audio_update via doorfx)
 static void sfx_door(void){ doorfx = 6; doorfx_t = 0; sfx_duck = 46; }
 static void sfx_seal(void){ sq_note(1, 81, 11, 2, 10); bell_toll(88, 3); sfx_duck = 8; }
@@ -280,7 +287,7 @@ void* memset(void* d, int v, unsigned n){ volatile u8* dd = (volatile u8*)d; for
 #define LF_RUNE    2   // the door is webbed shut until the bell rune is tolled
 typedef struct { const char* name; const char* chap; int chapter; int radius; int oil; int flags;
                  const char* f1; const char* f2; const char* hint; const char* map[MH]; } Level;
-static const Level LEVELS[9] = {
+static const Level LEVELS[14] = {
 { "CANDLELIT ENTRY", "CHAPTER ONE - THE MANOR", 0, 3, 0, LF_CANDLES,
   "THE MANOR SLEEPS.", "TAKE BACK WHAT WAS STOLEN.",
   "LIGHT THE CANDLE. GATHER THE RELICS.",
@@ -308,17 +315,17 @@ static const Level LEVELS[9] = {
     "#......D......#",
     "###############" } },
 { "OIL AND ASHES", "CHAPTER ONE - THE MANOR", 0, 3, 30, 0,
-  "YOUR LAMP THIRSTS.", "WHEN IT DIES, YOU DIE WITH IT.",
-  "OIL IS LIFE NOW. SPEND IT WELL.",
+  "YOUR LAMP THIRSTS.", "ONE FLASK REMAINS. TWO ROADS CALL.",
+  "CHOOSE YOUR ROAD WELL.",
   { "###############",
-    "#S..x....#....#",
-    "#...x....#..r.#",
-    "#.####...#....#",
-    "#....#...###.##",
-    "#..w.#........#",
-    "#.o..####..o..#",
-    "#.............#",
-    "#.r....D....r.#",
+    "#S..#......#..#",
+    "#...#......#r.#",
+    "#...#...#..#..#",
+    "#...#####..#..#",
+    "###w#......#..#",
+    "#...#...#.....#",
+    "#.....o.###...#",
+    "#.r.....#...Dr#",
     "###############" } },
 { "THE PLATE AND THE GATE", "CHAPTER TWO - THE CRYPT", 1, 3, 40, 0,
   "OLD STONE LISTENS FOR WEIGHT.", "",
@@ -381,7 +388,7 @@ static const Level LEVELS[9] = {
     "#..C..#..#r##.#",
     "#.....#..#....#",
     "##g####..#G.w.#",
-    "#...B.......#.#",
+    "#...B.......###",
     "#..s......C...#",
     "#.r...D.....r.#",
     "###############" } },
@@ -398,8 +405,73 @@ static const Level LEVELS[9] = {
     "#..g..g......3#",
     "#.r....D....r.#",
     "###############" } },
+{ "THE AIRLOCK", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 40, 0,
+  "TWO LEVERS BREATHE AS ONE.", "WHAT OPENS HERE SEALS THERE.",
+  "CROSS, TURN, CROSS AGAIN.",
+  { "###############",
+    "#S...#....#...#",
+    "#....#....#r..#",
+    "#.L..A..k.#...#",
+    "#....#....#...#",
+    "#....#.L..E...#",
+    "#....#....#.r.#",
+    "#..o.#.r..#...#",
+    "#....#....#D..#",
+    "###############" } },
+{ "THE HERDING", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 40, 0,
+  "THE DEAD FEAR YOUR LIGHT.", "DRIVE THEM BEFORE YOU.",
+  "A CORNERED WRAITH IS A WALL.",
+  { "###############",
+    "#S....r......r#",
+    "#.............#",
+    "#..#########..#",
+    "#.w#########w.#",
+    "#..#########..#",
+    "#.............#",
+    "#..C......r...#",
+    "#.....D....s..#",
+    "###############" } },
+{ "THE WEAVER'S CLOCK", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 44, 0,
+  "THE WEAVER WORKS THE LOOM.", "HER WEIGHT OPENS THE WAY.",
+  "STEP CLOSE TO FREEZE HER HAND.",
+  { "###############",
+    "#S......#.....#",
+    "#.......##g.s##",
+    "#.o.....#######",
+    "#..k..........#",
+    "#.......##G####",
+    "#.......#.....#",
+    "#..r....#.r...#",
+    "#r......#..D..#",
+    "###############" } },
+{ "THE FOUR SEALS", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 84, LF_CANDLES,
+  "FOUR SEALS SLEEP IN FOUR WINDS.", "ONE TRUE ORDER, OR ALL UNDONE.",
+  "LIGHT EVERY CANDLE TOO.",
+  { "###############",
+    "#S...L#...#Lr.#",
+    "#.3..C#....2..#",
+    "#.....#.o....r#",
+    "####A#####E####",
+    "#...........C.#",
+    "#.1..C..#..4..#",
+    "#..L.r.M.r....#",
+    "#.....#D#.....#",
+    "###############" } },
+{ "THE DEEP BELL", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 88, LF_CANDLES | LF_RUNE,
+  "THE DEEP BELL TOLLS FOR KEEPERS.", "SEALS, WEIGHTS, WEBS - ALL OF IT.",
+  "SPEND YOUR LIGHT LIKE A MISER.",
+  { "###############",
+    "#S..#.C..#.k..#",
+    "#3..#.w..#.1..#",
+    "#.C.#....#.C.r#",
+    "#...####.####.#",
+    "#..B.g..K....o#",
+    "#r.B.g..K..R..#",
+    "#..s....###w.##",
+    "#.o...r...2D..#",
+    "###############" } },
 };
-#define NUM_LEVELS 9
+#define NUM_LEVELS 14
 
 typedef struct { int x, y, px, py, sx, sy; } Brazier;
 static Brazier braziers[4]; static int num_braziers = 0;
@@ -430,7 +502,7 @@ static int base_solid(int x, int y){
         if (c == 'M') return !seq_done();
         return lever_on; // 'E'
     }
-    return c == '#' || c == 'I' || c == 'H' || c == 'T' || c == 'C' || c == 'c' || c == 'L' || (c >= '1' && c <= '3') || c == ' ';
+    return c == '#' || c == 'I' || c == 'H' || c == 'T' || c == 'C' || c == 'c' || c == 'L' || (c >= '1' && c <= '4') || c == ' ';
 }
 static int plate_pressed_at(int x, int y){
     if (grid[y][x] != 'g') return 0;
@@ -477,7 +549,7 @@ static void load_level(int idx){
     relics_total = relics_left;
     seq_total = 0; seq_prog = 0;
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++)
-        if (grid[y][x] >= '1' && grid[y][x] <= '3') seq_total++;
+        if (grid[y][x] >= '1' && grid[y][x] <= '4') seq_total++;
     player.px = player.sx = player.x * 16; player.py = player.sy = player.y * 16;
     player.dir = 0; player.frame = 0;
     for (int i = 0; i < num_enemies; i++){ enemies[i].px = enemies[i].sx = enemies[i].x * 16; enemies[i].py = enemies[i].sy = enemies[i].y * 16; }
@@ -534,7 +606,7 @@ static int tile_for_cell(int x, int y){
         case 'E': return lever_on ? 21 : 10;
         case 'M': return seq_done() ? 10 : 21;
         case 'L': return lever_on ? 20 : 19;
-        case '1': case '2': case '3': return (c - '0' <= seq_prog) ? 20 : 19;
+        case '1': case '2': case '3': case '4': return (c - '0' <= seq_prog) ? 20 : 19;
         case 'g': return plate_pressed_at(x, y) ? 12 : 11;
         case 'C': return 13; case 'c': return 14;
         case 'R': return rune_used ? 1 : 17;
@@ -577,21 +649,22 @@ static int enemy_blocked(int x, int y){
 }
 static void wraith_move(Enemy* e){
     int md = iabs(e->x - player.x) + iabs(e->y - player.y);
-    if (md == 1){ e->x = player.x; e->y = player.y; pending_died = 1; return; }
-    if (light[e->y][e->x] >= 2){ // caught in the light: flee or dissolve
+    if (light[e->y][e->x] >= 2){ // caught in the light: repelled — it flees to a darker or
+        // farther cell, and if no cell improves its lot it cowers where it stands,
+        // plugging the way (touching it is still death). Light never kills it now.
+        int cl = light[e->y][e->x];
         int best = -1, bestlight = 99, bestdist = -1;
         for (int d = 0; d < 4; d++){
             int nx = e->x + DX[d], ny = e->y + DY[d];
             if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || enemy_blocked(nx, ny)) continue;
+            if (nx == player.x && ny == player.y) continue;
             int l = light[ny][nx], dist = iabs(nx - player.x) + iabs(ny - player.y);
             if (l < bestlight || (l == bestlight && dist > bestdist)){ best = d; bestlight = l; bestdist = dist; }
         }
-        if (best >= 0 && bestlight < 2){ e->x += DX[best]; e->y += DY[best]; return; }
-        e->alive = 0; score += 100; sfx_dissolve();
-        for (int i = 0; i < 3; i++) spawn_particle(e->px + 4, e->py + 4, (int)(rnd() % 3) - 1, -1, 50, 21, 1);
-        set_msg("THE WRAITH DISSOLVES IN LIGHT");
+        if (best >= 0 && (bestlight < cl || (bestlight == cl && bestdist > md))){ e->x += DX[best]; e->y += DY[best]; }
         return;
     }
+    if (md == 1){ e->x = player.x; e->y = player.y; pending_died = 1; return; }
     // BFS through darkness toward the player
     static s8 stepdir[MH][MW]; static u8 seen[MH][MW];
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){ seen[y][x] = 0; stepdir[y][x] = -1; }
@@ -674,12 +747,12 @@ static void resolve_turn(int dx, int dy, int is_wait){
             } else if (tc == 'L'){
                 lever_on = !lever_on; sfx_lever(); moved = 1;
                 set_msg(lever_on ? "THE LEVER CLANKS - ON" : "THE LEVER CLANKS - OFF");
-            } else if (tc >= '1' && tc <= '3'){
+            } else if (tc >= '1' && tc <= '4'){
                 int d = tc - '0';
                 if (d == seq_prog + 1){
                     seq_prog++; moved = 1;
                     if (seq_prog >= seq_total){ sfx_door(); set_msg("THE SEALED GATE OPENS"); }
-                    else { sfx_seal(); set_msg(d == 1 ? "THE FIRST SEAL TURNS" : "THE SECOND SEAL TURNS"); }
+                    else { sfx_seal(); set_msg(d == 1 ? "THE FIRST SEAL TURNS" : (d == 2 ? "THE SECOND SEAL TURNS" : "THE THIRD SEAL TURNS")); }
                 } else if (d > seq_prog + 1){
                     seq_prog = 0; sfx_reset(); set_msg("THE SEALS RESET"); moved = 1;
                 } else {
@@ -892,7 +965,9 @@ static void draw_intro(void){
     const Level* L = &LEVELS[level_idx];
     clear_text();
     put_text_c(2, L->chap, 7);
-    char lvbuf[10] = "LEVEL 0"; lvbuf[6] = (char)('1' + level_idx);
+    char lvbuf[10] = "LEVEL 0";
+    if (level_idx < 9) lvbuf[6] = (char)('1' + level_idx);
+    else { lvbuf[6] = '1'; lvbuf[7] = (char)('0' + (level_idx - 9)); lvbuf[8] = 0; }
     put_text_c(4, lvbuf, 5);
     put_text_c(6, L->name, 4);
     put_text_c(9, L->f1, 4);
@@ -928,7 +1003,9 @@ static void draw_hud(void){
     char line[31]; for (int i = 0; i < 30; i++) line[i] = ' '; line[30] = 0;
     line[1] = 'S'; line[2] = 'C';
     int v = score; for (int i = 9; i >= 4; i--){ line[i] = (char)('0' + (v % 10)); v /= 10; }
-    line[12] = 'L'; line[13] = 'V'; line[15] = (char)('1' + level_idx);
+    line[12] = 'L'; line[13] = 'V';
+    if (level_idx < 9) line[15] = (char)('1' + level_idx);
+    else { line[15] = '1'; line[16] = (char)('0' + (level_idx - 9)); }
     line[18] = 'R'; line[20] = (char)('0' + (relics_total - relics_left)); line[21] = '/'; line[22] = (char)('0' + relics_total);
     line[24] = 'O'; line[25] = 'I'; line[26] = 'L';
     if (oil_budget > 0){ line[28] = (char)('0' + (oil_left / 10)); line[29] = (char)('0' + (oil_left % 10)); }
@@ -1064,7 +1141,7 @@ static u16 qa_drive(void){
 static int qa_done_mask = 0, qa_end_seen = 0, qa_end_snap = 0;
 static void qa_report(void){
     if (state == ST_CLEAR) qa_done_mask |= (1 << level_idx);
-    if (state == ST_END){ qa_end_seen = 1; qa_done_mask = 0x1FF; }
+    if (state == ST_END){ qa_end_seen = 1; qa_done_mask = (1 << NUM_LEVELS) - 1; }
     volatile unsigned char* s = (volatile unsigned char*)0x0E000000;
     if (state == ST_END && !qa_end_snap){
         qa_end_snap = 1;

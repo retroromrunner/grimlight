@@ -70,8 +70,8 @@ int main(void){
     pthread_create(&gt, 0, game_thread, 0);
 
     int dumped_title = 0, dumped_play = 0, dumped_intro = 0, done = 0;
-    int base_moves[9]; for (int i = 0; i < 9; i++) base_moves[i] = -1;
-    int dumped_lv[9] = {0}; int last_level = 0;
+    int base_moves[16]; for (int i = 0; i < 16; i++) base_moves[i] = -1;
+    int dumped_lv[16] = {0}; int last_level = 0;
     for (int t = 0; t < 24000; t++){          // up to ~120 s
         unsigned char* s = sram();
         int state = s[2], level = s[3];
@@ -84,7 +84,7 @@ int main(void){
         if (!dumped_play && (state == 2 || state == 3) && level == 0 && moves >= 3){
             dump("qa/dump_l1.txt"); dumped_play = 1;
         }
-        if ((level == 4 || level == 6 || level == 8) && !dumped_lv[level] &&
+        if ((level == 4 || level == 6 || level == 8 || level == 9 || level == 12 || level == 13) && !dumped_lv[level] &&
             (state == 2 || state == 3) && base_moves[level] >= 0 && moves >= base_moves[level] + 4){
             char path[32]; snprintf(path, sizeof path, "qa/dump_l%d.txt", level + 1);
             dump(path); dumped_lv[level] = 1;

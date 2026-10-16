@@ -40,3 +40,22 @@ Manor: 1 Candlelit Entry · 2 The Long Gallery · 3 Oil and Ashes
 Crypt: 4 Brazier Puzzles · 5 The Plate and the Gate · 6 Weaver's Dark
 Belfry: 7 Patrol of Bones · 8 Snuff the Lights · 9 The Hollow Bell
 
+## v1.3 addendum (Oct 16, 2026 — Cori playtest round 3)
+- **Exit fanfare**: leaving a room plays an 8-note square-wave victory figure with bells
+  beneath and the music ducked — unmistakable, after two rounds of "I can't hear it."
+- **Wraiths redesigned** (Cori's brief): light no longer dissolves them. In darkness they
+  hunt as before; in light they are *repelled* — they flee to a darker/farther cell, and if
+  no cell improves their lot they cower in place, plugging corridors (touch still kills).
+  Herding them out of — or into — doorways is now a core puzzle verb. Enemies also press
+  pressure plates, which L12 weaponizes.
+- **L3 Oil and Ashes** rebuilt as a true maze: one flask, divider walls with single gaps,
+  route order decides whether the oil lasts.
+- **L8** leak sealed (the alcove beside the gate) and a fourth candle added inside the
+  gated pocket, so the gate is now mandatory.
+- **Five new levels (Chapter Four — The Deep Bell, new palette):** 10 The Airlock (two
+  levers sharing one state drive an A/E airlock, skeleton patrol), 11 The Herding (ring
+  corridor, two wraiths), 12 The Weaver's Clock (a spider penned with a pressure plate
+  holds your gate — loiter to make her settle, step close to freeze her on it),
+  13 The Four Seals (four-seal order puzzle + airlock + candle-sealed door),
+  14 The Deep Bell (everything at once). Seal levers now support digits 1-4.
+- Rendering stays dirty-flagged (v1.2); HUD/intro now print two-digit level numbers.

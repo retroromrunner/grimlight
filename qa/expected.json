@@ -1,7 +1,7 @@
 {
- "total_play_actions": 483,
- "predicted_score": 4395,
- "stream_len": 494,
+ "total_play_actions": 806,
+ "predicted_score": 6910,
+ "stream_len": 822,
  "per_level": [
   {
    "level": 1,
@@ -13,13 +13,13 @@
    "level": 2,
    "name": "THE LONG GALLERY",
    "actions": 21,
-   "score": 685
+   "score": 585
   },
   {
    "level": 3,
    "name": "OIL AND ASHES",
-   "actions": 37,
-   "score": 595
+   "actions": 40,
+   "score": 450
   },
   {
    "level": 4,
@@ -31,7 +31,7 @@
    "level": 5,
    "name": "TWO WEIGHTS",
    "actions": 45,
-   "score": 400
+   "score": 300
   },
   {
    "level": 6,
@@ -49,13 +49,43 @@
    "level": 8,
    "name": "EVERY CANDLE",
    "actions": 65,
-   "score": 625
+   "score": 525
   },
   {
    "level": 9,
    "name": "THE HOLLOW BELL",
    "actions": 122,
-   "score": 700
+   "score": 600
+  },
+  {
+   "level": 10,
+   "name": "THE AIRLOCK",
+   "actions": 34,
+   "score": 540
+  },
+  {
+   "level": 11,
+   "name": "THE HERDING",
+   "actions": 26,
+   "score": 660
+  },
+  {
+   "level": 12,
+   "name": "THE WEAVER'S CLOCK",
+   "actions": 26,
+   "score": 660
+  },
+  {
+   "level": 13,
+   "name": "THE FOUR SEALS",
+   "actions": 129,
+   "score": 675
+  },
+  {
+   "level": 14,
+   "name": "THE DEEP BELL",
+   "actions": 105,
+   "score": 525
   }
  ]
 }
