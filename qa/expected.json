@@ -1,0 +1,61 @@
+{
+ "total_play_actions": 483,
+ "predicted_score": 4395,
+ "stream_len": 494,
+ "per_level": [
+  {
+   "level": 1,
+   "name": "CANDLELIT ENTRY",
+   "actions": 38,
+   "score": 355
+  },
+  {
+   "level": 2,
+   "name": "THE LONG GALLERY",
+   "actions": 21,
+   "score": 685
+  },
+  {
+   "level": 3,
+   "name": "OIL AND ASHES",
+   "actions": 37,
+   "score": 595
+  },
+  {
+   "level": 4,
+   "name": "THE PLATE AND THE GATE",
+   "actions": 31,
+   "score": 285
+  },
+  {
+   "level": 5,
+   "name": "TWO WEIGHTS",
+   "actions": 45,
+   "score": 400
+  },
+  {
+   "level": 6,
+   "name": "WEAVER'S DARK",
+   "actions": 61,
+   "score": 450
+  },
+  {
+   "level": 7,
+   "name": "THE TURNKEY",
+   "actions": 63,
+   "score": 300
+  },
+  {
+   "level": 8,
+   "name": "EVERY CANDLE",
+   "actions": 65,
+   "score": 625
+  },
+  {
+   "level": 9,
+   "name": "THE HOLLOW BELL",
+   "actions": 122,
+   "score": 700
+  }
+ ]
+}
