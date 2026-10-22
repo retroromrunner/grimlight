@@ -435,12 +435,12 @@ static const Level LEVELS[30] = {
   "LIGHT EVERY CANDLE. A CORNERED WRAITH IS A WALL.",
   { "###############",
     "#S..C.r......r#",
-    "#.............#",
+    "#..........w..#",
     "#..#########..#",
     "#Cw#########wC#",
-    "#..#########..#",
-    "#...w.....w...#",
-    "#..C......r...#",
+    "#..#########w.#",
+    "#...w..w..w...#",
+    "#..C......r.w.#",
     "#.....D....s..#",
     "###############" } },
 { "THE WEAVER'S CLOCK", "CHAPTER FOUR - THE DEEP BELL", 3, 3, 50, 0,
@@ -480,7 +480,7 @@ static const Level LEVELS[30] = {
     "#..B.g..K....o#",
     "#r.B.g..K..R.w#",
     "#..s....###MM##",
-    "#.o...r...2D..#",
+    "#.....r...2D..#",
     "###############" } },
 { "THE FIRST SENTINEL", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
   "IT HAS NOT BLINKED IN AGES.", "NOR WILL IT BLINK FOR YOU.",
@@ -809,6 +809,8 @@ static int door_ready(void){
 
 static void compute_light(void);
 static int in_gaze(int tx, int ty); // defined with the turn logic (needs DX/DY)
+static u8 gaze_map[MH][MW];       // per-render gaze cache, filled once per render_map
+static void compute_gaze_map(void); // defined with the gaze logic below
 static void load_level(int idx){
     const Level* L = &GAME_LEVELS[idx];
     num_enemies = 0; num_braziers = 0; num_blocks = 0; relics_left = 0; num_portals = 0;
@@ -908,12 +910,13 @@ static int tile_for_cell(int x, int y){
         case '>': return 28;
         default:
             // a lit stretch of a warden's kill line wears the red sigil
-            if ((light[y][x] > 0 || reveal_t > 0) && in_gaze(x, y)) return 29;
+            if ((light[y][x] > 0 || reveal_t > 0) && gaze_map[y][x]) return 29;
             return ((x * 3 + y * 7) % 5 == 0) ? 2 : 1;
     }
 }
 static void render_map(void){
     // full redraw from the CACHED light map; called only when the world changed
+    compute_gaze_map(); // one warden pass per render, not one grid scan per cell
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
         int tile = tile_for_cell(x, y);
         tile_cache[y][x] = (u8)tile;
@@ -1051,6 +1054,24 @@ static int in_gaze(int tx, int ty){
         }
     }
     return 0;
+}
+// The render-side twin of in_gaze: instead of rescanning the grid for every
+// cell tile_for_cell touches (150 x 150 per redraw), walk each warden's ray
+// once per render and mark the cells it reaches. A cell is marked BEFORE the
+// blocker test, exactly like in_gaze's target-first check, so the marked set
+// is identical to { (x,y) : in_gaze(x,y) } for the grid as it stands.
+static void compute_gaze_map(void){
+    for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++) gaze_map[y][x] = 0;
+    for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
+        int d = gaze_dir(grid[y][x]);
+        if (d < 0) continue;
+        int cx = x + DX[d], cy = y + DY[d];
+        while (cx >= 0 && cy >= 0 && cx < MW && cy < MH){
+            gaze_map[cy][cx] = 1;
+            if (gaze_blocker(cx, cy)) break;
+            cx += DX[d]; cy += DY[d];
+        }
+    }
 }
 // Where can a pushed thing go? 0 = nowhere, 1 = it slides there,
 // 2 = a hazard takes it and leaves a footing behind, 3 = a hazard takes it
