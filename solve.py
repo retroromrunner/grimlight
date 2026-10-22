@@ -13,23 +13,27 @@ DIR_OF = {"D": 0, "U": 1, "L": 2, "R": 3}
 src = open("src/main.c").read()
 block = src[src.index("static const Level LEVELS"):src.index("#define NUM_LEVELS")]
 headers = re.findall(r'\{\s*"([^"]+)",\s*"([^"]+)",\s*(\d+),\s*(\d+),\s*(\d+),\s*([\w |]+),', block)
-rows = re.findall(r'"([ #IH T.,xDGgKcCAELBRrSowkvsM1234]{15})"', block)
+rows = re.findall(r'"(#[ #IH T.,xDGgKcCAELBRrSowkvsM1234~bV<>^=eayOfd]{13}#)"', block)
 FLAGMAP = {"0": 0, "LF_CANDLES": 1, "LF_RUNE": 2, "LF_CANDLES | LF_RUNE": 3, "3": 3}
-assert len(rows) == 10 * len(headers) and len(headers) == 14, (len(headers), len(rows))
+assert len(rows) == 10 * len(headers) and len(headers) == 30, (len(headers), len(rows))
 LEVELS = []
 for i, (name, chap, ch, rad, oil, flg) in enumerate(headers):
     LEVELS.append({"name": name, "chapter": int(ch), "radius": int(rad), "oil": int(oil),
                    "flags": FLAGMAP[flg.strip()], "map": rows[i * 10:(i + 1) * 10]})
 
 class Sim:
+    SENT_DIR = {"V": 0, "^": 1, "<": 2, ">": 3}  # warden facing -> DX/DY index
     def __init__(self, lv):
         m = lv["map"]
         self.walls = set(); self.candles = set(); self.plates = set(); self.gates = set()
         self.kgates = set(); self.lgates = {}; self.levers = set()
         self.seqlevers = {}; self.seqgates = set()
+        self.hazards = set(); self.sentinels = {}
+        self.lavas = set(); self.acids = set(); self.crumbles = set()
+        self.portals = []
         self.door = None; self.rune = None
         relics = set(); oils = set(); lit = set()
-        self.braziers0 = []; enemies = []
+        self.braziers0 = []; self.blocks0 = []; enemies = []
         self.start = None
         for y in range(MH):
             for x in range(MW):
@@ -50,11 +54,40 @@ class Sim:
                 elif c == "o": oils.add((x, y))
                 elif c == "S": self.start = (x, y)
                 elif c == "B": self.braziers0.append((x, y))
+                elif c == "b": self.blocks0.append((x, y))
+                elif c == "~": self.hazards.add((x, y))
+                elif c == "e": self.lavas.add((x, y))
+                elif c == "a": self.acids.add((x, y))
+                elif c == "y": self.crumbles.add((x, y))
+                elif c == "O": self.portals.append((x, y))
+                elif c in self.SENT_DIR:
+                    self.sentinels[(x, y)] = self.SENT_DIR[c]
+                    self.walls.add((x, y))  # a warden is stone: solid to everything
                 elif c in "wkvs":
                     t = 0 if c == "w" else (2 if c == "s" else 1)
                     enemies.append((t, x, y, 1 if c == "v" else 3, 1))
         self.base_radius = lv["radius"]; self.budget = lv["oil"]; self.flags = lv["flags"]
         self.seq_total = len(self.seqlevers)
+        self.static_char = {}
+        for _y in range(MH):
+            for _x in range(MW):
+                _p = (_x, _y)
+                if _p in self.hazards: _c = "~"
+                elif _p in self.lavas: _c = "e"
+                elif _p in self.acids: _c = "a"
+                elif _p in self.walls: _c = "#"
+                elif _p in self.candles: _c = "C"
+                elif _p in self.plates: _c = "g"
+                elif _p in self.gates: _c = "G"
+                elif _p in self.kgates: _c = "K"
+                elif _p in self.lgates: _c = self.lgates[_p]
+                elif _p in self.levers: _c = "L"
+                elif _p in self.seqlevers: _c = str(self.seqlevers[_p])
+                elif _p in self.seqgates: _c = "M"
+                elif _p == self.door: _c = "D"
+                elif _p == self.rune: _c = "R"
+                else: _c = "."
+                self.static_char[_p] = _c
         self.seq_by_digit = {d: p for p, d in self.seqlevers.items()}
         self._light_cache = {}
         # Sokoban dead squares: cells from which a brazier can never be pushed
@@ -63,7 +96,7 @@ class Sim:
         # soft-locked the level, so stage goals reject such end states.
         self.dead = set()
         if self.plates:
-            blocked = set(self.walls) | self.gates | self.kgates | set(self.lgates) | self.levers | self.seqgates | set(self.seqlevers)
+            blocked = set(self.walls) | self.gates | self.kgates | set(self.lgates) | self.levers | self.seqgates | set(self.seqlevers) | self.hazards | self.lavas | self.acids
             if self.door: blocked.add(self.door)
             def occrable(x, y):
                 return (x, y) not in blocked and 0 <= x < MW and 0 <= y < MH
@@ -81,28 +114,22 @@ class Sim:
         en0 = tuple(enemies)
         st = (self.start[0], self.start[1], tuple(sorted(self.braziers0)), en0,
               frozenset(relics), frozenset(oils), frozenset(lit), frozenset(),
-              self.base_radius, self.budget, 0, 0, False, False, False, 0)
+              self.base_radius, self.budget, 0, 0, False, False, False, 0,
+              tuple(sorted(self.blocks0)), frozenset(), frozenset())
         self.init = self._gates(st)
 
-    # state: (px,py,braz,en,relics,oils,lit,scored,radius,oil_left,freeze,turnpar,gate,rune_used,lever,seq_prog)
+    # state: (px,py,braz,en,relics,oils,lit,scored,radius,oil_left,freeze,turnpar,gate,rune_used,lever,seq_prog,blocks,filled,crumbled)
     def _char(self, st, x, y):
+        if (x, y) in st[18]: return "#"   # a crumbled floor is void now
         if (x, y) in st[4]: return "r"
         if (x, y) in st[5]: return "o"
-        if (x, y) in self.walls: return "#"
-        if (x, y) in self.candles: return "c" if (x, y) in st[6] else "C"
-        if (x, y) in self.plates: return "g"
-        if (x, y) in self.gates: return "G"
-        if (x, y) in self.kgates: return "K"
-        if (x, y) in self.lgates: return self.lgates[(x, y)]
-        if (x, y) in self.levers: return "L"
-        if (x, y) in self.seqlevers: return str(self.seqlevers[(x, y)])
-        if (x, y) in self.seqgates: return "M"
-        if (x, y) == self.door: return "D"
-        if (x, y) == self.rune: return "R"
-        return "."
+        if (x, y) in st[17]: return "="   # a slab settled in a hazard: footing
+        c = self.static_char[(x, y)]
+        if c == "C": return "c" if (x, y) in st[6] else "C"
+        return c
 
     def _occ(self, st):
-        return {(st[0], st[1])} | set(st[2]) | {(e[1], e[2]) for e in st[3] if e[4]}
+        return {(st[0], st[1])} | set(st[2]) | set(st[16]) | {(e[1], e[2]) for e in st[3] if e[4]}
 
     def _pressed(self, st):
         occ = self._occ(st)
@@ -111,7 +138,7 @@ class Sim:
     def _solid(self, st, x, y, pressed=None, lever=None, seqp=None):
         if x < 0 or y < 0 or x >= MW or y >= MH: return True
         c = self._char(st, x, y)
-        if c in "#CcL1234": return True
+        if c in "#CcL1234~ea": return True
         if c in "GKAEM":
             if (x, y) in self._occ(st): return False
             if pressed is None: pressed = self._pressed(st)
@@ -132,7 +159,27 @@ class Sim:
 
     def _gates(self, st):
         gate = self._pressed(st) >= 1 or any(g in self._occ(st) for g in self.gates)
-        return st[:12] + (gate, st[13], st[14], st[15])
+        return st[:12] + (gate,) + st[13:]
+
+    def _gaze_blocker(self, st, x, y):
+        # mirrors C gaze_blocker: pushed things and settled slabs break the
+        # line; open water does not; everything base_solid does. Chapter Six:
+        # a lava flow's flame curtain DOES blind the wardens; acid, like the
+        # river, lets the stare skim through.
+        if (x, y) in st[2] or (x, y) in st[16] or (x, y) in st[17]: return True
+        if (x, y) in self.lavas: return True
+        if (x, y) in self.hazards or (x, y) in self.acids: return False
+        return self._solid(st, x, y)
+
+    def _gaze_lethal(self, st):
+        px, py = st[0], st[1]
+        for (sx, sy), d in self.sentinels.items():
+            cx, cy = sx + DX[d], sy + DY[d]
+            while 0 <= cx < MW and 0 <= cy < MH:
+                if (cx, cy) == (px, py): return True
+                if self._gaze_blocker(st, cx, cy): break
+                cx += DX[d]; cy += DY[d]
+        return False
 
     def _light(self, st):
         key = (st[0], st[1], st[2], st[6], st[8])
@@ -142,6 +189,8 @@ class Sim:
         sources = [(px, py, st[8] + 2)]
         for (x, y) in st[6]: sources.append((x, y, 3))
         for (x, y) in braz: sources.append((x, y, 3))
+        for (x, y) in self.lavas:
+            if (x, y) not in st[17]: sources.append((x, y, 3))  # lava glows until filled (C: grid becomes 'f', dark)
         L = [[0] * MW for _ in range(MH)]
         for y in range(MH):
             for x in range(MW):
@@ -159,26 +208,44 @@ class Sim:
         if self._solid(tmp, x, y): return True
         if self._char(tmp, x, y) == "D": return True
         if (x, y) in braz: return True
+        if (x, y) in st[16]: return True
         if any(e[4] and e[1] == x and e[2] == y for e in en): return True
         return False
 
     def step(self, st, act):
         """Returns (new_state, score_gain, solved) or None if the action is a no-op or fatal."""
-        px, py, braz, en, relics, oils, lit, scored, radius, oil_left, freeze, turnpar, gate, rune_used, lever, seqp = st
+        px, py, braz, en, relics, oils, lit, scored, radius, oil_left, freeze, turnpar, gate, rune_used, lever, seqp = st[:16]
+        blocks, filled = list(st[16]), set(st[17])
+        crum = set(st[18])
         braz = list(braz); en = [list(e) for e in en]
         score = 0; oil_got = False; solved = False
         if act != "W":
             d = DIR_OF[act]; dx, dy = DX[d], DY[d]
             nx, ny = px + dx, py + dy
             bi = next((i for i, b in enumerate(braz) if b == (nx, ny)), -1)
-            if bi >= 0:
+            ki = next((i for i, b in enumerate(blocks) if b == (nx, ny)), -1)
+            if bi >= 0 or ki >= 0:
                 bx, by = nx + dx, ny + dy
                 bc = self._char(st, bx, by) if 0 <= bx < MW and 0 <= by < MH else "#"
-                if (self._solid(st, bx, by) or (bx, by) in braz
-                        or any(e[4] and e[1] == bx and e[2] == by for e in en)
-                        or bc not in ".,xg"):
+                if ((bx, by) in braz or (bx, by) in blocks
+                        or any(e[4] and e[1] == bx and e[2] == by for e in en)):
                     return None
-                braz[bi] = (bx, by); px, py = nx, ny
+                if bc in "~ea":
+                    # a hazard takes the pushed thing. The red river leaves a
+                    # footing for either weight; lava bears only the bone slab
+                    # (a brazier fed to it burns away - no footing); acid bears
+                    # only the brazier (a slab fed to it dissolves - no footing).
+                    fills = bc == "~" or (bc == "e" and ki >= 0) or (bc == "a" and bi >= 0)
+                    if bi >= 0: braz.pop(bi)
+                    else: blocks.pop(ki)
+                    if fills: filled.add((bx, by))
+                    px, py = nx, ny
+                elif self._solid(st, bx, by) or bc not in ".,xg=":
+                    return None
+                else:
+                    if bi >= 0: braz[bi] = (bx, by)
+                    else: blocks[ki] = (bx, by)
+                    px, py = nx, ny
             elif (nx < 0 or ny < 0 or nx >= MW or ny >= MH or self._solid(st, nx, ny)
                   or (self._char(st, nx, ny) == "D" and not self.door_ready(relics, lit, rune_used))):
                 tc = self._char(st, nx, ny) if 0 <= nx < MW and 0 <= ny < MH else "#"
@@ -201,8 +268,20 @@ class Sim:
                 return None  # walked into a monster
             else:
                 px, py = nx, ny
-            c = self._char((px, py, tuple(braz), tuple(tuple(e) for e in en), relics, oils, lit, scored,
-                            radius, oil_left, freeze, turnpar, gate, rune_used, lever, seqp), px, py)
+            # the twin bells: arriving on a bell portal rings you to its twin.
+            # Only a real move rings it (bumps and waits do not), the twin never
+            # chains, and a twin blocked by a pushed thing refuses the ring.
+            if (px, py) != (st[0], st[1]) and (px, py) in self.portals:
+                twin = self.portals[0] if (px, py) == self.portals[1] else self.portals[1]
+                if twin not in braz and twin not in blocks:
+                    px, py = twin
+            # crumbling floor: the cell the keeper just left falls to the void
+            if (px, py) != (st[0], st[1]) and (st[0], st[1]) in self.crumbles:
+                crum.add((st[0], st[1]))
+            cur = (px, py, tuple(braz), tuple(tuple(e) for e in en), relics, oils, lit, scored,
+                   radius, oil_left, freeze, turnpar, gate, rune_used, lever, seqp,
+                   tuple(sorted(blocks)), frozenset(filled), frozenset(crum))
+            c = self._char(cur, px, py)
             if c == "r":
                 relics = relics - {(px, py)}; score += 150
             elif c == "o":
@@ -211,6 +290,8 @@ class Sim:
                 rune_used = True; freeze = 3
             elif c == "D" and self.door_ready(relics, lit, rune_used):
                 solved = True
+            if self._gaze_lethal(cur):
+                return None  # the warden's gaze: death beats even a same-turn clear (C order)
         newturn = turnpar + 1  # kept for state-shape stability; no rule reads it now
         if self.budget > 0 and not oil_got:
             oil_left -= 1
@@ -218,13 +299,14 @@ class Sim:
                 return None  # the lantern dies; death beats even a same-turn clear (C order)
             radius = self.base_radius if oil_left > self.budget // 3 else max(1, self.base_radius - 1)
         st2 = (px, py, tuple(sorted(braz)), tuple(tuple(e) for e in en), relics, oils, lit, scored,
-               radius, oil_left, freeze, newturn & 1, gate, rune_used, lever, seqp)
+               radius, oil_left, freeze, newturn & 1, gate, rune_used, lever, seqp,
+               tuple(sorted(blocks)), frozenset(filled), frozenset(crum))
         st2 = self._gates(st2)
         gate = st2[12]
         light = self._light(st2)
         if freeze > 0:
             freeze -= 1
-            st2 = st2[:10] + (freeze, st2[11], st2[12], st2[13], st2[14], st2[15])
+            st2 = st2[:10] + (freeze,) + st2[11:]
             st2 = self._gates(st2)
             return st2, score, solved
         en = [list(e) for e in st2[3]]
@@ -299,7 +381,8 @@ class Sim:
             if e[1] == px and e[2] == py: died = True
             if died: return None
         st3 = (px, py, braz_t, tuple(tuple(e) for e in en), relics, oils, lit, scored,
-               radius, oil_left, freeze, newturn & 1, gate, rune_used, lever, seqp)
+               radius, oil_left, freeze, newturn & 1, gate, rune_used, lever, seqp,
+               st2[16], st2[17], st2[18])
         st3 = self._gates(st3)
         return st3, score, solved
 
@@ -314,7 +397,7 @@ class Sim:
             for dd in range(4):
                 nx, ny = cx + DX[dd], cy + DY[dd]
                 if (nx, ny) in seen or not (0 <= nx < MW and 0 <= ny < MH): continue
-                if self._solid(st, nx, ny, pressed=pressed, lever=lever, seqp=seqp) or (nx, ny) in st[2]: continue
+                if self._solid(st, nx, ny, pressed=pressed, lever=lever, seqp=seqp) or (nx, ny) in st[2] or (nx, ny) in st[16]: continue
                 seen.add((nx, ny)); q.append((nx, ny))
         return seen
 

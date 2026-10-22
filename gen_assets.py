@@ -21,6 +21,8 @@ TERRAIN_PALS = [
      "#5E3620","#8A5A30","#6E1420","#9E2432","#C9962E","#D8CFB8","#3E4A44","#F0B04A"],  # The Deep Bell
     ["#0A0505","#201214","#2E1B1E","#422824","#160B0A","#4E2E28","#6A423A","#281618",
      "#7A4A2B","#A8743F","#8C1A24","#B02A38","#C9962E","#D8CFB8","#6E4A34","#F0B04A"],  # The Ember Deep
+    ["#050505","#1A1712","#332E28","#4E463C","#12100D","#5A4C3C","#7D6A52","#292019",
+     "#7A4A2B","#A8743F","#A8320E","#E86A1E","#C9962E","#D8CFB8","#3FA34D","#FFB03A"],  # The Molten Choir: ash grey stone, ember-orange carpet/lava, acid-green moss
 ]
 # Actor palette: 0 transparent, 1 outline, 2 bone, 3 pale, 4 shade, 5 wraith-dark,
 # 6 cloak, 7 cloak-light, 8 hood, 9 skin, a red, b amber, c spider, d spider-mark, e dirty, f glint
@@ -451,6 +453,108 @@ def gaze_floor():
     for (x, y) in ((7, 5), (8, 5), (7, 10), (8, 10), (5, 7), (5, 8), (10, 7), (10, 8)): g[y][x] = 0xA
     return g
 TILES.append(gaze_floor())                               # 29 GAZE_FLOOR
+TILES.append(grid([                                      # 30 LAVA (Chapter Six: molten veins
+    "4444444444444444",                                  #  of index-b in dark basalt, amber sparks)
+    "4bb444444444b444",
+    "44bb444f4444bb44",
+    "444bbb44444b4444",
+    "44444bb4f4bb4444",
+    "4f4444bbb44444b4",
+    "44b44444bb44bb44",
+    "44bb44f44bbb4444",
+    "444bb444444bb4f4",
+    "4444bbb44f44bb44",
+    "4b4444bb44444b44",
+    "4bb44444bb4bb444",
+    "444b4f444bb44444",
+    "444bb44444bbb44f",
+    "44444b44f444bb44",
+    "4444444444444444"]))
+TILES.append(grid([                                      # 31 ACID (Chapter Six: index-e seep
+    "4444444444444444",                                  #  pools in dark mud, bone-pale bubbles)
+    "44ee444444ee4444",
+    "4eeee44d44eeee44",
+    "44ee4ee4444ee444",
+    "4444eeee44d4ee44",
+    "4d44ee4eee444444",
+    "44eeee444eee4d44",
+    "44ee44d44eee4444",
+    "444d4eeee44ee444",
+    "44444ee4d4eeee44",
+    "4ee4444eeee44444",
+    "4eee4d44ee44ee44",
+    "44ee4444d44eee44",
+    "44d4ee44444ee444",
+    "44444ee4d44d4ee4",
+    "4444444444444444"]))
+TILES.append(grid([                                      # 32 FOOT_LAVA (a slab settled in lava:
+    "bbbbbbbbbbbbbbbb",                                  #  stone footing, bright lava at the rim)
+    "bbaaaaaaaaaaaabb",
+    "ba222222222222ab",
+    "ba232224222232ab",
+    "ba222222224222ab",
+    "ba3222f22222232b",
+    "ba2224222222222b",
+    "bb2222222224222b",
+    "ba222223222222ab",
+    "ba224222222232ab",
+    "ba222222222222ab",
+    "ba232242222322ab",
+    "ba222222222222ab",
+    "bbaaaaaaaaaaaabb",
+    "bbbbbbbbbbbbbbbb",
+    "babbbbbbbbbbbbab"]))
+TILES.append(grid([                                      # 33 FOOT_ACID (a brazier settled in
+    "eeeeeeeeeeeeeeee",                                  #  acid: stone footing, green at the rim)
+    "eedeeeeeeeeeedee",
+    "ee222222222222ee",
+    "ee232224222232ee",
+    "ee222222224222ee",
+    "ee3222d22222232e",
+    "ee222422222222ee",
+    "e32222222224222e",
+    "ee222223222222ee",
+    "ee224222222232ee",
+    "ee222222222222ee",
+    "ee232242222322ee",
+    "ee222222222222ee",
+    "eedeeeeeeeeeedee",
+    "eeeeeeeeeeeeeeee",
+    "edeeeeeeeeeeeede"]))
+TILES.append(grid([                                      # 34 CRUMBLE (Chapter Six: floor at the
+    "2222222222222222",                                  #  edge of falling - cracks everywhere)
+    "2242224222422222",
+    "2224222224424222",
+    "2422224222222422",
+    "2224422222242222",
+    "2242222422224224",
+    "2222224224422222",
+    "2424242222242422",
+    "2222224222222222",
+    "2242222242242224",
+    "2224222222224222",
+    "2222242424222222",
+    "2422222224424242",
+    "2222422222222222",
+    "2222224222422222",
+    "2222222222222222"]))
+TILES.append(grid([                                      # 35 PORTAL (Chapter Six: a bell portal -
+    "1111111111111111",                                  #  a small gold bell on a stone arch)
+    "1111555555551111",
+    "1115666666665111",
+    "1116666666666111",
+    "111666cccc666111",
+    "11166cccccc66111",
+    "11166ccdccc66111",
+    "11166cccccc66111",
+    "111666fcc6666111",
+    "1116666666666111",
+    "1116655555566111",
+    "1111555555551111",
+    "1111111111111111",
+    "1121122221122111",
+    "1111111111111111",
+    "1111111111111111"]))
 
 # ---------------- Sprites (actor palette; 0 = transparent) ----------------
 def spr(rows): return grid([r.replace(".", "0") for r in rows])
@@ -960,7 +1064,7 @@ def main():
     lines.append(emit_tiles("SPRITE_TILES", SPRITES))
     lines.append(f"#define NUM_SPRITES {len(SPRITES)}")
     tp = ",\n".join("    {" + ",".join(f"0x{c555(c):04X}" for c in pal) + "}" for pal in TERRAIN_PALS)
-    lines.append(f"static const unsigned short TERRAIN_PALS[5][16] = {{\n{tp}\n}};")
+    lines.append(f"static const unsigned short TERRAIN_PALS[{len(TERRAIN_PALS)}][16] = {{\n{tp}\n}};")
     lines.append("static const unsigned short ACTOR_PAL[16] = {" +
                  ",".join(f"0x{c555(c):04X}" for c in ACTOR_PAL) + "};")
     ft = font_tiles()

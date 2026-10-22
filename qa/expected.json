@@ -1,7 +1,7 @@
 {
- "total_play_actions": 1251,
- "predicted_score": 10105,
- "stream_len": 1275,
+ "total_play_actions": 1878,
+ "predicted_score": 14080,
+ "stream_len": 1910,
  "per_level": [
   {
    "level": 1,
@@ -134,6 +134,54 @@
    "name": "THE LAST EMBER",
    "actions": 106,
    "score": 500
+  },
+  {
+   "level": 23,
+   "name": "THE TWIN BELLS",
+   "actions": 55,
+   "score": 500
+  },
+  {
+   "level": 24,
+   "name": "THE EMBER STAIR",
+   "actions": 77,
+   "score": 525
+  },
+  {
+   "level": 25,
+   "name": "THE WEAVER'S REQUIEM",
+   "actions": 57,
+   "score": 450
+  },
+  {
+   "level": 26,
+   "name": "THE NIGHT WATCH",
+   "actions": 50,
+   "score": 450
+  },
+  {
+   "level": 27,
+   "name": "THE HERDING OF KINGS",
+   "actions": 90,
+   "score": 525
+  },
+  {
+   "level": 28,
+   "name": "THE SEALED CHOIR",
+   "actions": 78,
+   "score": 525
+  },
+  {
+   "level": 29,
+   "name": "THE LAST CROSSING",
+   "actions": 60,
+   "score": 475
+  },
+  {
+   "level": 30,
+   "name": "THE LAST WORD",
+   "actions": 160,
+   "score": 525
   }
  ]
 }

@@ -288,11 +288,18 @@ void* memset(void* d, int v, unsigned n){ volatile u8* dd = (volatile u8*)d; for
 // = a slab settled in the river (walkable footing; only ever appears at runtime),
 // ^ V < > wardens: stone sentinels whose gaze runs in the faced direction until stone,
 // a pushed thing, or a settled slab breaks the line - ending your move in it is death.
+// Chapter Six terrain/mechanics: e lava flow (glowing: lights the room S=3 and its
+// flame curtain BLOCKS the gaze; only a bone slab settles in it - a brazier burns
+// away), a acid seep (the gaze skims it like the river; only a brazier settles in
+// it - a bone slab dissolves), f/d the settled footings in lava/acid (runtime only,
+// render like = but in their own colours), y crumbling floor (bears you once: the
+// cell you leave falls to void), O a bell portal (a pair of bells: arriving on one
+// rings you to its twin, unless a pushed thing blocks the twin).
 #define LF_CANDLES 1   // the door also needs every candle lit
 #define LF_RUNE    2   // the door is webbed shut until the bell rune is tolled
 typedef struct { const char* name; const char* chap; int chapter; int radius; int oil; int flags;
                  const char* f1; const char* f2; const char* hint; const char* map[MH]; } Level;
-static const Level LEVELS[22] = {
+static const Level LEVELS[30] = {
 { "CANDLELIT ENTRY", "CHAPTER ONE - THE MANOR", 0, 3, 0, LF_CANDLES,
   "THE MANOR SLEEPS.", "TAKE BACK WHAT WAS STOLEN.",
   "LIGHT THE CANDLE. GATHER THE RELICS.",
@@ -579,6 +586,110 @@ static const Level LEVELS[22] = {
     "#..3.R.......M#",
     "#>...........D#",
     "###############" } },
+{ "THE TWIN BELLS", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 0, LF_CANDLES,
+  "TWO BELLS, ONE ROAD.", "THE RIVER KEEPS THE REST.",
+  "STEP ON A BELL. ARRIVE AT ITS TWIN.",
+  { "###############",
+    "#S.....~....O.#",
+    "#..I.r.~.w...C#",
+    "#......~......#",
+    "#..B...~.....r#",
+    "#.....C~..kb.L#",
+    "#....w.~.##...#",
+    "#......~#rA...#",
+    "#.O....~.##gGD#",
+    "###############" } },
+{ "THE EMBER STAIR", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 0, LF_CANDLES,
+  "THE FLOOR REMEMBERS ONE CROSSING.", "THE LAVA REMEMBERS THE REST.",
+  "CRUMBLED FLOOR BEARS YOU ONCE. LAVA BEARS STONE, NOT IRON.",
+  { "###############",
+    "#S...........D#",
+    "#.C.........r.#",
+    "#.............#",
+    "#.eeeeeyeeeee.#",
+    "#.............#",
+    "#........w....#",
+    "#...b.....B.Cr#",
+    "#.r...C.......#",
+    "###############" } },
+{ "THE WEAVER'S REQUIEM", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 100, 0,
+  "SHE SINGS TO THE STONE NOW.", "HER WEIGHT STILL OPENS THE WAY.",
+  "WALK YOUR SHIELD DOWN THE WATCHED ROAD. ACID BEARS IRON, NOT BONE.",
+  { "###############",
+    "#S........#..s#",
+    "#...b...#####g#",
+    "#...........#<#",
+    "#......k......#",
+    "#.r...........#",
+    "#........#G####",
+    "#r......#...a.#",
+    "#.......#r.BaD#",
+    "###############" } },
+{ "THE NIGHT WATCH", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 0, 0,
+  "THE DEAD KEEP THE HOURS.", "BORROW THEIR FEET.",
+  "ONE PLATE FOR STONE. ONE FOR THE WATCH.",
+  { "###############",
+    "#S..#...r#.#D##",
+    "#..L#.g..#....#",
+    "#...#....#....#",
+    "#...A..g.K....#",
+    "#...#....#.B..#",
+    "#...#....#....#",
+    "#.r.#.bv.#r...#",
+    "#...#....#..^.#",
+    "###############" } },
+{ "THE HERDING OF KINGS", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 90, LF_CANDLES | LF_RUNE,
+  "FOUR KINGS IN THE DARK.", "ALL MUST BOW TO THE LIGHT.",
+  "LIGHT EVERY CANDLE. PUSH STONE THROUGH THE COURT.",
+  { "###############",
+    "#...C.w.....r.#",
+    "#.....B....w..#",
+    "#...w.........#",
+    "#S.b.....w..g.#",
+    "#.........C..r#",
+    "#eeeeeeGeeeeee#",
+    "#.C..k......o.#",
+    "#.R....r....D.#",
+    "###############" } },
+{ "THE SEALED CHOIR", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 95, LF_CANDLES,
+  "FOUR VOICES. FOUR KEEPERS.", "SING THEM IN ORDER.",
+  "EACH SEAL HAS ITS KEEPER. THE GATE REMEMBERS.",
+  { "###############",
+    "#.....#2#..a.4#",
+    "#.C.r.....Ba..#",
+    "##....S..O.a.r#",
+    "#1..b........<#",
+    "##.........C..#",
+    "#...kC....k...#",
+    "#..r..o......##",
+    "#3....O.....MD#",
+    "###############" } },
+{ "THE LAST CROSSING", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 100, 0,
+  "THREE WATERS, THREE PRICES.", "THE RIVER REMEMBERS THEM ALL.",
+  "EACH WATER BEARS ITS OWN WEIGHT. THE FLOORS FALL BEHIND YOU.",
+  { "###############",
+    "#S.....r......#",
+    "#.............#",
+    "#....b.....B..#",
+    "#~~~~eeeeeaaaa#",
+    "#.y...yy...y..#",
+    "#>..Cweo......#",
+    "#.r...eg.bw..##",
+    "#.....y.r...GD#",
+    "###############" } },
+{ "THE LAST WORD", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 95, LF_CANDLES | LF_RUNE,
+  "THE BELL HAS ONE WORD LEFT.", "SPEAK IT, AND DAWN ANSWERS.",
+  "EVERY LESSON. EVERY LOCK. ONE DOOR.",
+  { "###############",
+    "#S..r..2.rs...#",
+    "#.1..C...k##.g#",
+    "#...w.......v##",
+    "#.....ey.....3#",
+    "#C...b..w.R.4##",
+    "#........#o..e#",
+    "#.......#o#GC<#",
+    "#.O.....#O.rMD#",
+    "###############" } },
 };
 // QA-only alternate level set (mechanics test rooms) - never in release builds.
 #ifdef QA_TEST_LEVELS
@@ -587,7 +698,7 @@ static const Level LEVELS[22] = {
 #define NUM_LEVELS TEST_NUM_LEVELS
 #else
 #define GAME_LEVELS LEVELS
-#define NUM_LEVELS 22
+#define NUM_LEVELS 30
 #endif
 
 // ---------------- passcodes ----------------
@@ -647,6 +758,7 @@ static int lever_on = 0;
 static int seq_prog = 0, seq_total = 0;   // seal-order levers: '1'..'3' flipped in order
 static int door_x = 0, door_y = 0;
 static int map_dirty = 1;
+static int portal_x[2], portal_y[2], num_portals = 0;  // the twin bells (Chapter Six)
 static int seq_done(void){ return seq_total > 0 && seq_prog >= seq_total; }
 static int level_flags = 0;
 static int door_ready_prev = 0;
@@ -669,7 +781,7 @@ static int base_solid(int x, int y){
         return lever_on; // 'E'
     }
     return c == '#' || c == 'I' || c == 'H' || c == 'T' || c == 'C' || c == 'c' || c == 'L' || (c >= '1' && c <= '4') || c == ' '
-        || c == '~' || c == '^' || c == 'V' || c == '<' || c == '>';
+        || c == '~' || c == 'e' || c == 'a' || c == '^' || c == 'V' || c == '<' || c == '>';
 }
 static int plate_pressed_at(int x, int y){
     if (grid[y][x] != 'g') return 0;
@@ -699,7 +811,7 @@ static void compute_light(void);
 static int in_gaze(int tx, int ty); // defined with the turn logic (needs DX/DY)
 static void load_level(int idx){
     const Level* L = &GAME_LEVELS[idx];
-    num_enemies = 0; num_braziers = 0; num_blocks = 0; relics_left = 0;
+    num_enemies = 0; num_braziers = 0; num_blocks = 0; relics_left = 0; num_portals = 0;
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
         char c = L->map[y][x];
         candle_scored[y][x] = 0;
@@ -707,6 +819,7 @@ static void load_level(int idx){
         if (c == 'S'){ player.x = x; player.y = y; grid[y][x] = '.'; }
         else if (c == 'B'){ braziers[num_braziers].x = x; braziers[num_braziers].y = y; num_braziers++; grid[y][x] = '.'; }
         else if (c == 'b'){ blocks[num_blocks].x = x; blocks[num_blocks].y = y; num_blocks++; grid[y][x] = '.'; }
+        else if (c == 'O'){ if (num_portals < 2){ portal_x[num_portals] = x; portal_y[num_portals] = y; num_portals++; } }
         else if (c == 'w' || c == 'k' || c == 'v' || c == 's'){
             Enemy* e = &enemies[num_enemies++];
             e->type = (c == 'w') ? EN_WRAITH : (c == 's') ? EN_SPIDER : EN_SKEL;
@@ -747,7 +860,7 @@ static void compute_light(void){
         light[y][x] = (u8)clampi(best, 0, 3);
     }
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
-        int s = (grid[y][x] == 'c') ? 3 : 0;
+        int s = (grid[y][x] == 'c' || grid[y][x] == 'e') ? 3 : 0;  // lit candles AND lava glow
         if (!s) continue;
         for (int yy = y - 3; yy <= y + 3; yy++) for (int xx = x - 3; xx <= x + 3; xx++){
             if (xx < 0 || yy < 0 || xx >= MW || yy >= MH) continue;
@@ -783,6 +896,12 @@ static int tile_for_cell(int x, int y){
         case 'R': return rune_used ? 1 : 17;
         case '~': return 23;
         case '=': return 24;
+        case 'e': return 30;
+        case 'a': return 31;
+        case 'f': return 32;
+        case 'd': return 33;
+        case 'y': return 34;
+        case 'O': return 35;
         case 'V': return 25;
         case '^': return 26;
         case '<': return 27;
@@ -908,12 +1027,16 @@ static void spider_move(Enemy* e, int idx){
 // a slab settled in the river, which stands proud of the water. Open river
 // does NOT stop the stare - it skims the surface. Only the cells before
 // the blocker are lethal; ending your move on one is death. The bell rune
-// freezes the haunting, but it does not blind the wardens.
+// freezes the haunting, but it does not blind the wardens. Chapter Six: a
+// lava flow's flame curtain DOES stop the stare (and settled footings in
+// lava/acid stand proud like the river's); acid, like the river, is skimmed.
 static int gaze_dir(char c){ return c == 'V' ? 0 : c == '^' ? 1 : c == '<' ? 2 : c == '>' ? 3 : -1; }
 static int gaze_blocker(int x, int y){
     if (brazier_at(x, y) >= 0 || block_at(x, y) >= 0) return 1;
-    if (grid[y][x] == '=') return 1; // a settled slab breaks the line
-    if (grid[y][x] == '~') return 0; // open water does not
+    char c = grid[y][x];
+    if (c == '=' || c == 'f' || c == 'd') return 1; // a settled slab breaks the line
+    if (c == '~' || c == 'a') return 0; // open water/acid does not
+    if (c == 'e') return 1; // lava's flame curtain blinds the wardens
     return base_solid(x, y);
 }
 static int in_gaze(int tx, int ty){
@@ -930,14 +1053,19 @@ static int in_gaze(int tx, int ty){
     return 0;
 }
 // Where can a pushed thing go? 0 = nowhere, 1 = it slides there,
-// 2 = the red river takes it and leaves a footing behind.
-static int push_dest(int bx, int by){
+// 2 = a hazard takes it and leaves a footing behind, 3 = a hazard takes it
+// and leaves NOTHING (the wrong weight for that water). The red river bears
+// either weight; lava bears only the bone slab (a brazier burns away); acid
+// bears only the brazier (a bone slab dissolves).
+static int push_dest(int bx, int by, int is_slab){
     if (bx < 0 || by < 0 || bx >= MW || by >= MH) return 0;
     if (brazier_at(bx, by) >= 0 || block_at(bx, by) >= 0 || enemy_at(bx, by) >= 0) return 0;
     char bc = grid[by][bx];
     if (bc == '~') return 2;
+    if (bc == 'e') return is_slab ? 2 : 3;
+    if (bc == 'a') return is_slab ? 3 : 2;
     if (base_solid(bx, by)) return 0;
-    return (bc == '.' || bc == ',' || bc == 'x' || bc == 'g' || bc == '=') ? 1 : 0;
+    return (bc == '.' || bc == ',' || bc == 'x' || bc == 'g' || bc == '=' || bc == 'f' || bc == 'd' || bc == 'y' || bc == 'O') ? 1 : 0;
 }
 
 static void resolve_turn(int dx, int dy, int is_wait){
@@ -946,6 +1074,7 @@ static void resolve_turn(int dx, int dy, int is_wait){
     for (int i = 0; i < num_braziers; i++){ braziers[i].sx = braziers[i].px; braziers[i].sy = braziers[i].py; }
     for (int i = 0; i < num_blocks; i++){ blocks[i].sx = blocks[i].px; blocks[i].sy = blocks[i].py; }
     pending_died = 0; pending_cleared = 0;
+    int turn_sx = player.x, turn_sy = player.y;  // for portal/crumble (Chapter Six)
     int go0 = gate_open, to0 = twin_open;
     int moved = is_wait, oil_got = 0;
     if (!is_wait){
@@ -954,18 +1083,28 @@ static void resolve_turn(int dx, int dy, int is_wait){
         int bi = brazier_at(nx, ny), ki = block_at(nx, ny);
         if (bi >= 0 || ki >= 0){
             int bx = nx + dx, by = ny + dy;
-            int pd = push_dest(bx, by);
+            int pd = push_dest(bx, by, ki >= 0);
             if (pd == 1){
                 if (bi >= 0){ braziers[bi].x = bx; braziers[bi].y = by; }
                 else { blocks[ki].x = bx; blocks[ki].y = by; }
                 player.x = nx; player.y = ny; moved = 1; sfx_push();
             } else if (pd == 2){
-                // the river takes the weight and gives back a footing
+                // a hazard takes the weight and gives back a footing
+                char terr = grid[by][bx];
                 if (bi >= 0){ num_braziers--; braziers[bi] = braziers[num_braziers]; }
                 else { num_blocks--; blocks[ki] = blocks[num_blocks]; }
-                grid[by][bx] = '=';
+                grid[by][bx] = (terr == 'e') ? 'f' : (terr == 'a') ? 'd' : '=';
                 player.x = nx; player.y = ny; moved = 1; sfx_fill();
-                set_msg("THE RIVER TAKES IT - A FOOTING HOLDS");
+                set_msg(terr == 'e' ? "THE LAVA TAKES IT - A FOOTING HOLDS" :
+                        terr == 'a' ? "THE ACID TAKES IT - A FOOTING HOLDS" :
+                                      "THE RIVER TAKES IT - A FOOTING HOLDS");
+            } else if (pd == 3){
+                // the wrong weight for that water: taken, and nothing holds
+                char terr = grid[by][bx];
+                if (bi >= 0){ num_braziers--; braziers[bi] = braziers[num_braziers]; }
+                else { num_blocks--; blocks[ki] = blocks[num_blocks]; }
+                player.x = nx; player.y = ny; moved = 1; sfx_dissolve();
+                set_msg(terr == 'e' ? "THE LAVA TAKES IT - NOTHING HOLDS" : "THE ACID TAKES IT - NOTHING HOLDS");
             }
         } else if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || base_solid(nx, ny) || (grid[ny][nx] == 'D' && !door_ready())){
             char tc = (nx < 0 || ny < 0 || nx >= MW || ny >= MH) ? '#' : grid[ny][nx];
@@ -993,6 +1132,10 @@ static void resolve_turn(int dx, int dy, int is_wait){
                 else if (relics_left > 0) set_msg("GATHER THE RELICS FIRST");
             } else if (tc == '~'){
                 set_msg("THE RED RIVER RUNS TOO DEEP");
+            } else if (tc == 'e'){
+                set_msg("THE LAVA BURNS TOO BRIGHT");
+            } else if (tc == 'a'){
+                set_msg("THE ACID BITES TOO DEEP");
             }
         } else if (enemy_at(nx, ny) >= 0){
             player.x = nx; player.y = ny; moved = 1; pending_died = 1;
@@ -1000,6 +1143,23 @@ static void resolve_turn(int dx, int dy, int is_wait){
             player.x = nx; player.y = ny; moved = 1; sfx_step();
         }
         if (!moved) return; // bonk: no turn passes
+        // the twin bells: arriving on a bell portal rings you to its twin
+        // (a twin blocked by a pushed thing refuses the ring; never chains)
+        if (!pending_died && (player.x != turn_sx || player.y != turn_sy)
+                && grid[player.y][player.x] == 'O' && num_portals == 2){
+            int ti = (player.x == portal_x[0] && player.y == portal_y[0]) ? 1 : 0;
+            int tx = portal_x[ti], ty = portal_y[ti];
+            if (brazier_at(tx, ty) < 0 && block_at(tx, ty) < 0){
+                player.x = tx; player.y = ty;
+                player.px = player.sx = tx * 16; player.py = player.sy = ty * 16;
+                sfx_bell(); set_msg("THE TWIN BELL RINGS");
+            }
+        }
+        // crumbling floor: the cell the keeper just left falls to the void
+        if (!pending_died && (player.x != turn_sx || player.y != turn_sy) && grid[turn_sy][turn_sx] == 'y'){
+            grid[turn_sy][turn_sx] = ' ';
+            sfx_dissolve();
+        }
         // pickups & triggers on the player's new cell
         char c = grid[player.y][player.x];
         if (c == 'r'){
