@@ -134,7 +134,7 @@ static void put_text_c(int ty, const char* str, int bank){ // centered (30 tiles
 }
 
 // ---------------- shared game state ----------------
-enum { ST_TITLE, ST_INTRO, ST_PLAY, ST_ANIM, ST_CLEAR, ST_DEAD, ST_END, ST_PAUSE };
+enum { ST_TITLE, ST_INTRO, ST_PLAY, ST_ANIM, ST_CLEAR, ST_DEAD, ST_END, ST_PAUSE, ST_CODE };
 static int state = ST_TITLE;
 static int state_t = 0;         // frames in current state
 static int frame = 0;
@@ -472,6 +472,52 @@ static const Level LEVELS[14] = {
     "###############" } },
 };
 #define NUM_LEVELS 14
+
+// ---------------- passcodes ----------------
+// One 5-letter word per level, spoken at the title screen to return to that
+// level (a fresh run starting there: score/deaths/moves are the title's
+// zeroes, oil comes from the level definition via load_level).
+// Scheme: the word is a pure function of the 1-based level number, so no
+// per-level table is stored and it scales to any level count.
+//   h = avalanche hash of L (Knuth multiply + murmur-style finalizer)
+//   word = h mod 24^5, written as 5 base-24 digits over PC_ALPHA
+// PC_ALPHA is the 24 letters A-Z minus I and O (the two that read as 1 and
+// 0), so every word is unambiguous in the game's font. Decoding scans
+// L = 1..200 for a value match and accepts only L <= NUM_LEVELS; the hash
+// keeps neighbouring levels' words unrelated (no increment to guess), and
+// the constants were chosen so all words for L = 1..200 are distinct.
+#define PC_LEN 5
+#define PC_SPACE 7962624 // 24^5
+#define PC_MAX_LEVEL 200
+static const char PC_ALPHA[25] = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+static u32 pc_mix(u32 L){
+    u32 h = L * 2654435761u;
+    h ^= h >> 13;
+    h = h * 2246822519u;
+    h ^= h >> 16;
+    return h;
+}
+static int pc_value_of(u32 L){ return (int)(pc_mix(L) % (u32)PC_SPACE); }
+static void pc_code_for(int idx, char* out){ // idx is 0-based
+    int v = pc_value_of((u32)(idx + 1));
+    for (int i = 0; i < PC_LEN; i++){ out[i] = PC_ALPHA[v % 24]; v /= 24; }
+    out[PC_LEN] = 0;
+}
+static int pc_level_for(const char* code){ // returns 0-based idx, or -1
+    int v = 0, mult = 1;
+    for (int i = 0; i < PC_LEN; i++){
+        int d = -1;
+        for (int j = 0; j < 24; j++) if (PC_ALPHA[j] == code[i]){ d = j; break; }
+        if (d < 0) return -1;
+        v += d * mult; mult *= 24;
+    }
+    for (int L = 1; L <= PC_MAX_LEVEL; L++)
+        if (pc_value_of((u32)L) == v) return (L - 1 < NUM_LEVELS) ? (L - 1) : -1;
+    return -1;
+}
+static char pc_buf[PC_LEN + 1];
+static int pc_cur = 0;   // slot being edited on the entry screen
+static int pc_err_t = 0; // frames left showing the invalid-word message
 
 typedef struct { int x, y, px, py, sx, sy; } Brazier;
 static Brazier braziers[4]; static int num_braziers = 0;
@@ -896,7 +942,7 @@ static void compose_oam(void){
         int pbob = (state == ST_PLAY) ? ((frame >> 5) & 1) : 0;
         add_sprite(player.px, player.py + pbob, ptile + pframe, 0, pflip);
     }
-    if (state == ST_TITLE){
+    if (state == ST_TITLE || state == ST_CODE){
         static const int FLSEQ2[4] = {16, 17, 22, 17};
         int fl = FLSEQ2[(frame >> 3) & 3];
         add_sprite_blend(2 * 16, 2 * 16 - 2, 23, 3);
@@ -957,6 +1003,7 @@ static void enter_title(void){
     put_text_c(3, "THE HOLLOW BELL", 4);
     put_text_c(11, "A TURN-BASED GOTHIC PUZZLE", 7);
     put_text_c(12, "OF LIGHT AND SHADOW", 7);
+    put_text_c(14, "SELECT - ENTER PASSCODE", 7);
     put_text_c(17, "DPAD MOVE - A WAIT", 7);
     put_text_c(18, "B RESTART - START PAUSE", 7);
     set_state(ST_TITLE);
@@ -982,6 +1029,13 @@ static void draw_intro(void){
         int j = 0; for (i = split + 1; L->hint[i]; i++) b[j++] = L->hint[i]; b[j] = 0;
         put_text_c(13, a, 7); put_text_c(14, b, 7);
     }
+    char pc_line[20]; // "PASSCODE: " + the level's own word
+    const char* pre = "PASSCODE: ";
+    int pi = 0; while (pre[pi]){ pc_line[pi] = pre[pi]; pi++; }
+    char word[PC_LEN + 1]; pc_code_for(level_idx, word);
+    for (int j = 0; j < PC_LEN; j++) pc_line[pi++] = word[j];
+    pc_line[pi] = 0;
+    put_text_c(15, pc_line, 5);
     put_text_c(17, "PRESS A", 5);
 }
 static void enter_intro(int idx){
@@ -991,6 +1045,30 @@ static void enter_intro(int idx){
     fade_scale = 16; fade_red = 0; flush_palettes();
     draw_intro();
     set_state(ST_INTRO);
+}
+static void enter_code(void){
+    for (int i = 0; i < PC_LEN; i++) pc_buf[i] = PC_ALPHA[0];
+    pc_buf[PC_LEN] = 0; pc_cur = 0; pc_err_t = 0;
+    draw_title_bg();
+    clear_text();
+    put_text_c(2, "GRIMLIGHT", 5);
+    put_text_c(3, "THE HOLLOW BELL", 4);
+    put_text_c(6, "SPEAK THE WORD OF THE BELL", 7);
+    put_text_c(16, "UP DOWN - CHOOSE THE LETTER", 7);
+    put_text_c(17, "LEFT RIGHT - MOVE ALONG", 7);
+    put_text_c(18, "A - SPEAK IT - B - TURN BACK", 7);
+    set_state(ST_CODE);
+}
+static void draw_code(void){
+    int x0 = (30 - PC_LEN) / 2;
+    for (int i = 0; i < PC_LEN; i++){
+        char s[2] = { pc_buf[i], 0 };
+        put_text(x0 + i, 10, s, (i == pc_cur) ? 5 : 4);
+        put_text(x0 + i, 11, " ", 5);
+    }
+    put_text(x0 + pc_cur, 11, "-", 5);
+    if (pc_err_t > 0) put_text_c(13, "THE BELL STAYS SILENT", 6);
+    else put_text_c(13, "                     ", 6);
 }
 static void draw_hud(void){
     // redrawn only when something it shows actually changed
@@ -1034,7 +1112,24 @@ static void update(void){
     switch (state){
     case ST_TITLE:
         if (pressed(KEY_START)){ enter_intro(0); }
+        else if (pressed(KEY_SELECT)){ enter_code(); }
         break;
+    case ST_CODE: {
+        if (pc_err_t > 0) pc_err_t--;
+        int ci = 0; while (PC_ALPHA[ci] != pc_buf[pc_cur]) ci++;
+        if (pressed(KEY_UP)){ ci = (ci + 1) % 24; pc_buf[pc_cur] = PC_ALPHA[ci]; sfx_toggle(); }
+        else if (pressed(KEY_DOWN)){ ci = (ci + 23) % 24; pc_buf[pc_cur] = PC_ALPHA[ci]; sfx_toggle(); }
+        else if (pressed(KEY_LEFT)){ if (pc_cur > 0){ pc_cur--; sfx_toggle(); } }
+        else if (pressed(KEY_RIGHT)){ if (pc_cur < PC_LEN - 1){ pc_cur++; sfx_toggle(); } }
+        else if (pressed(KEY_B)){ enter_title(); break; }
+        else if (pressed(KEY_A) || pressed(KEY_START)){
+            int idx = pc_level_for(pc_buf);
+            if (idx >= 0){ sfx_unlock(); enter_intro(idx); }
+            else { sfx_reset(); pc_err_t = 150; }
+            break;
+        }
+        draw_code();
+        break; }
     case ST_INTRO:
         if ((frame >> 5) & 1) put_text_c(17, "PRESS A", 5);
         else put_text_c(17, "", 5);
@@ -1125,17 +1220,23 @@ static void update(void){
 }
 
 #ifdef QA_BUILD
+#ifdef QA_PASSCODE_TEST
+#include "qa_passcode_script.h"
+#else
 #include "qa_script.h"
+#endif
 static int qa_idx = 0, qa_phase = 0, qa_timer = 0, qa_from = -1;
 static u16 qa_drive(void){
     if (qa_idx >= QA_NACT) return 0;
     if (qa_phase == 0){
-        if (state != ST_TITLE && state != ST_INTRO && state != ST_PLAY && state != ST_END) return 0;
+        if (state != ST_TITLE && state != ST_INTRO && state != ST_PLAY && state != ST_END && state != ST_CODE) return 0;
         qa_phase = 1; qa_timer = 0; qa_from = state;
         return (u16)QA_ACTIONS[qa_idx++];
     }
     qa_timer++;
-    if (state != qa_from || qa_timer > 40) qa_phase = 0;
+    // inside passcode entry a press does not change the state, so re-arm
+    // quickly there; elsewhere wait for the state to move on as before
+    if (state != qa_from || qa_timer > (qa_from == ST_CODE ? 6 : 40)) qa_phase = 0;
     return 0;
 }
 static int qa_done_mask = 0, qa_end_seen = 0, qa_end_snap = 0;
