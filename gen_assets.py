@@ -350,6 +350,105 @@ TILES.append(grid([                                      # 22 DOOR_WEBBED (door 
     "7777777777777777",
     "7777777777777777",
     "7777777777777777"]))
+TILES.append(grid([                                      # 23 HAZARD (the red river: dark blood-water,
+    "4444444444444444",                                  #  bright flow streaks, bone flecks)
+    "4aa4444aaaa44aa4",
+    "4aabbaa4aabbaa44",
+    "44aaaaaabaaaaa44",
+    "4a44aaaaaaaa4444",
+    "4aaabbaaaabbaaa4",
+    "44aaaaa4aaaaa4a4",
+    "4a4aabbaa4aaab44",
+    "4aaaaaaaabaaaaa4",
+    "44aabbaaaaaa4aa4",
+    "4aadaaaaabbaaa44",
+    "4a44aaa4aaaaa444",
+    "4aaabbaaa4aabba4",
+    "44aaaaaabaaaaaa4",
+    "4a4aaaaaaaa44aa4",
+    "4444444444444444"]))
+TILES.append(grid([                                      # 24 FILLED (a slab settled in the river:
+    "aaaaaaaaaaaaaaaa",                                  #  stone footing, red water lapping the rim)
+    "aabaaaaaaaaaaaba",
+    "aa222222222222aa",
+    "a22322242222322a",
+    "a22222222242222a",
+    "a23222d22222232a",
+    "a22224222222222a",
+    "a32222222224222a",
+    "a22222232222222a",
+    "a22422222222232a",
+    "a22222222222222a",
+    "a23224222232222a",
+    "aa222222222222aa",
+    "aabaaaaaaaaaabaa",
+    "aaaaaaaaaaaaaaaa",
+    "abaaaaaaaaaaaaba"]))
+# The WARDENS: stone sentinel heads on plinths. The face/beak and the gold
+# chevron carved in the plinth both point the way the gaze runs. Eyes are
+# palette 15 (amber), which resists the dark palette banks, so a warden's
+# stare stays readable in dim light.
+SENT_DOWN = [                                            # 25 SENTINEL, facing down (toward viewer)
+    "7777777777777777",
+    "7556666666666557",
+    "7565555555556657",
+    "7565444444446657",
+    "7654411111144567",
+    "76541f1111f14567",
+    "7654411111144567",
+    "7654441111444567",
+    "7756444444444657",
+    "7776555555556777",
+    "7777777777777777",
+    "7666666666666667",
+    "76c6666666666c67",
+    "7666c66666c66667",
+    "76666c6666c66667",
+    "7777777777777777"]
+TILES.append(grid(SENT_DOWN))
+TILES.append(grid([                                      # 26 SENTINEL, facing up (hood's back, crest up)
+    "7777777777777777",
+    "7556666556666557",
+    "7565555555556657",
+    "7565555555556657",
+    "7655555555555567",
+    "7655554554555567",
+    "7655555555555567",
+    "7756555555556577",
+    "7776555555556777",
+    "7777777777777777",
+    "7777777777777777",
+    "7666666666666667",
+    "76c6666666666c67",
+    "76666c6666c66667",
+    "7666c66666c66667",
+    "7777777777777777"]))
+SENT_RIGHT = [                                           # 27/28 SENTINEL in profile (beak + chevron point the way)
+    "7777777777777777",
+    "7556666666666777",
+    "7565555555556777",
+    "7565444444446777",
+    "76541f1111116777",
+    "7654411111dd6777",
+    "76544444dddd6777",
+    "77564444444d6777",
+    "7776555555556777",
+    "7777777777777777",
+    "7777777777777777",
+    "7666666666666667",
+    "76c6666666666c67",
+    "76666666c6666667",
+    "766666666c666667",
+    "7777777777777777"]
+TILES.append(grid([r[::-1] for r in SENT_RIGHT]))        # 27 SENTINEL, facing left
+TILES.append(grid(SENT_RIGHT))                           # 28 SENTINEL, facing right
+def gaze_floor():
+    # plain floor haunted by a faint warden-sigil: the telegraph for a kill line
+    g = base_floor(11)
+    for (x, y) in ((7, 7), (8, 7), (7, 8), (8, 8)): g[y][x] = 0xB
+    for (x, y) in ((7, 5), (8, 5), (7, 10), (8, 10), (5, 7), (5, 8), (10, 7), (10, 8)): g[y][x] = 0xA
+    return g
+TILES.append(gaze_floor())                               # 29 GAZE_FLOOR
 
 # ---------------- Sprites (actor palette; 0 = transparent) ----------------
 def spr(rows): return grid([r.replace(".", "0") for r in rows])
@@ -760,6 +859,23 @@ SPRITES.append(_radial(-8.5, -8.5, 9.0, 12.5, 15.5))    # 24 HALO NW quadrant (o
 SPRITES.append(_radial(23.5, -8.5, 9.0, 12.5, 15.5))    # 25 HALO NE quadrant
 SPRITES.append(_radial(-8.5, 23.5, 9.0, 12.5, 15.5))    # 26 HALO SW quadrant
 SPRITES.append(_radial(23.5, 23.5, 9.0, 12.5, 15.5))    # 27 HALO SE quadrant
+SPRITES.append(spr([  # 28 BONE SLAB - pushable block of carved bone-stone
+    "................",
+    "................",
+    "...1111111111...",
+    "..122222222221..",
+    "..222222222222..",
+    "..224222222422..",
+    "..222222222222..",
+    "..221122112222..",
+    "..222222222222..",
+    "..222241422222..",
+    "...2222222222...",
+    "....44444444....",
+    "................",
+    "................",
+    "................",
+    "................"]))
 
 # ---------------- 8x8 font ----------------
 FONT_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?:;'-/+()>% "

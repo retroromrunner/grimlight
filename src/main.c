@@ -273,6 +273,7 @@ static void sfx_exit(void){ fanf = 8; fanf_t = 0; sfx_duck = 60; }
 static void sfx_door(void){ doorfx = 6; doorfx_t = 0; sfx_duck = 46; }
 static void sfx_seal(void){ sq_note(1, 81, 11, 2, 10); bell_toll(88, 3); sfx_duck = 8; }
 static void sfx_reset(void){ sq_note(1, 55, 11, 3, 14); sq_note(2, 49, 11, 3, 18); noise_hit(8, 10, 1); sfx_duck = 14; }
+static void sfx_fill(void){ noise_hit(9, 10, 0); sq_note(1, 36, 10, 3, 20); sfx_duck = 10; } // a weight settling into the red river
 
 // libc-free memory helpers (freestanding environment still expects these symbols)
 void* memcpy(void* d, const void* s, unsigned n){ volatile u8* dd = (volatile u8*)d; const volatile u8* ss = (const volatile u8*)s; for (unsigned i = 0; i < n; i++) dd[i] = ss[i]; return d; }
@@ -282,7 +283,11 @@ void* memset(void* d, int v, unsigned n){ volatile u8* dd = (volatile u8*)d; for
 // Legend: # wall, I pillar, H portrait, T tombstone, . floor, , carpet, x cracked, (space) void,
 // D door, G plate gate (1 plate), K twin gate (2 plates), A lever gate (open when lever ON),
 // E lever gate (open when lever OFF), L lever, g plate, C candle unlit, c candle lit,
-// B brazier, R bell rune, S start, r relic, o oil, w wraith, k skeleton(h), v skeleton(v), s spider
+// B brazier, R bell rune, S start, r relic, o oil, w wraith, k skeleton(h), v skeleton(v), s spider,
+// b bone slab (pushable block), ~ the red river (hazard: impassable until filled),
+// = a slab settled in the river (walkable footing; only ever appears at runtime),
+// ^ V < > wardens: stone sentinels whose gaze runs in the faced direction until stone,
+// a pushed thing, or a settled slab breaks the line - ending your move in it is death.
 #define LF_CANDLES 1   // the door also needs every candle lit
 #define LF_RUNE    2   // the door is webbed shut until the bell rune is tolled
 typedef struct { const char* name; const char* chap; int chapter; int radius; int oil; int flags;
@@ -471,7 +476,15 @@ static const Level LEVELS[14] = {
     "#.o...r...2D..#",
     "###############" } },
 };
+// QA-only alternate level set (mechanics test rooms) - never in release builds.
+#ifdef QA_TEST_LEVELS
+#include "qa_test_levels.h"
+#define GAME_LEVELS TEST_LEVELS
+#define NUM_LEVELS TEST_NUM_LEVELS
+#else
+#define GAME_LEVELS LEVELS
 #define NUM_LEVELS 14
+#endif
 
 // ---------------- passcodes ----------------
 // One 5-letter word per level, spoken at the title screen to return to that
@@ -521,6 +534,8 @@ static int pc_err_t = 0; // frames left showing the invalid-word message
 
 typedef struct { int x, y, px, py, sx, sy; } Brazier;
 static Brazier braziers[4]; static int num_braziers = 0;
+typedef struct { int x, y, px, py, sx, sy; } Block;
+static Block blocks[6]; static int num_blocks = 0;
 static u8 candle_scored[MH][MW];
 static int gate_open = 0;
 static int twin_open = 0;
@@ -534,6 +549,7 @@ static int door_ready_prev = 0;
 static int reveal_t = 0;
 
 static int brazier_at(int x, int y){ for (int i = 0; i < num_braziers; i++) if (braziers[i].x == x && braziers[i].y == y) return i; return -1; }
+static int block_at(int x, int y){ for (int i = 0; i < num_blocks; i++) if (blocks[i].x == x && blocks[i].y == y) return i; return -1; }
 static int enemy_at(int x, int y){ for (int i = 0; i < num_enemies; i++) if (enemies[i].alive && enemies[i].x == x && enemies[i].y == y) return i; return -1; }
 static int gate_char(char c){ return c == 'G' || c == 'K' || c == 'A' || c == 'E' || c == 'M'; }
 static int base_solid(int x, int y){
@@ -541,19 +557,21 @@ static int base_solid(int x, int y){
     char c = grid[y][x];
     if (gate_char(c)){
         // a gate never blocks someone already standing in it
-        if ((player.x == x && player.y == y) || brazier_at(x, y) >= 0 || enemy_at(x, y) >= 0) return 0;
+        if ((player.x == x && player.y == y) || brazier_at(x, y) >= 0 || block_at(x, y) >= 0 || enemy_at(x, y) >= 0) return 0;
         if (c == 'G') return !gate_open;
         if (c == 'K') return !twin_open;
         if (c == 'A') return !lever_on;
         if (c == 'M') return !seq_done();
         return lever_on; // 'E'
     }
-    return c == '#' || c == 'I' || c == 'H' || c == 'T' || c == 'C' || c == 'c' || c == 'L' || (c >= '1' && c <= '4') || c == ' ';
+    return c == '#' || c == 'I' || c == 'H' || c == 'T' || c == 'C' || c == 'c' || c == 'L' || (c >= '1' && c <= '4') || c == ' '
+        || c == '~' || c == '^' || c == 'V' || c == '<' || c == '>';
 }
 static int plate_pressed_at(int x, int y){
     if (grid[y][x] != 'g') return 0;
     if (player.x == x && player.y == y) return 1;
     if (brazier_at(x, y) >= 0) return 1;
+    if (block_at(x, y) >= 0) return 1;
     if (enemy_at(x, y) >= 0) return 1;
     return 0;
 }
@@ -574,15 +592,17 @@ static int door_ready(void){
 }
 
 static void compute_light(void);
+static int in_gaze(int tx, int ty); // defined with the turn logic (needs DX/DY)
 static void load_level(int idx){
-    const Level* L = &LEVELS[idx];
-    num_enemies = 0; num_braziers = 0; relics_left = 0;
+    const Level* L = &GAME_LEVELS[idx];
+    num_enemies = 0; num_braziers = 0; num_blocks = 0; relics_left = 0;
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
         char c = L->map[y][x];
         candle_scored[y][x] = 0;
         grid[y][x] = c;
         if (c == 'S'){ player.x = x; player.y = y; grid[y][x] = '.'; }
         else if (c == 'B'){ braziers[num_braziers].x = x; braziers[num_braziers].y = y; num_braziers++; grid[y][x] = '.'; }
+        else if (c == 'b'){ blocks[num_blocks].x = x; blocks[num_blocks].y = y; num_blocks++; grid[y][x] = '.'; }
         else if (c == 'w' || c == 'k' || c == 'v' || c == 's'){
             Enemy* e = &enemies[num_enemies++];
             e->type = (c == 'w') ? EN_WRAITH : (c == 's') ? EN_SPIDER : EN_SKEL;
@@ -600,6 +620,7 @@ static void load_level(int idx){
     player.dir = 0; player.frame = 0;
     for (int i = 0; i < num_enemies; i++){ enemies[i].px = enemies[i].sx = enemies[i].x * 16; enemies[i].py = enemies[i].sy = enemies[i].y * 16; }
     for (int i = 0; i < num_braziers; i++){ braziers[i].px = braziers[i].sx = braziers[i].x * 16; braziers[i].py = braziers[i].sy = braziers[i].y * 16; }
+    for (int i = 0; i < num_blocks; i++){ blocks[i].px = blocks[i].sx = blocks[i].x * 16; blocks[i].py = blocks[i].sy = blocks[i].y * 16; }
     for (int i = 0; i < 20; i++) parts[i].life = 0;
     base_radius = radius = L->radius; oil_budget = L->oil; oil_left = oil_budget;
     level_flags = L->flags; lever_on = 0; flash_white = 0;
@@ -656,7 +677,16 @@ static int tile_for_cell(int x, int y){
         case 'g': return plate_pressed_at(x, y) ? 12 : 11;
         case 'C': return 13; case 'c': return 14;
         case 'R': return rune_used ? 1 : 17;
-        default: return ((x * 3 + y * 7) % 5 == 0) ? 2 : 1;
+        case '~': return 23;
+        case '=': return 24;
+        case 'V': return 25;
+        case '^': return 26;
+        case '<': return 27;
+        case '>': return 28;
+        default:
+            // a lit stretch of a warden's kill line wears the red sigil
+            if ((light[y][x] > 0 || reveal_t > 0) && in_gaze(x, y)) return 29;
+            return ((x * 3 + y * 7) % 5 == 0) ? 2 : 1;
     }
 }
 static void render_map(void){
@@ -690,6 +720,7 @@ static int enemy_blocked(int x, int y){
     if (base_solid(x, y)) return 1;
     if (grid[y][x] == 'D') return 1;
     if (brazier_at(x, y) >= 0) return 1;
+    if (block_at(x, y) >= 0) return 1;
     if (enemy_at(x, y) >= 0) return 1;
     return 0;
 }
@@ -765,24 +796,72 @@ static void spider_move(Enemy* e, int idx){
         e->x = nx; e->y = ny; return;
     }
 }
+// ---------------- the wardens' gaze ----------------
+// A warden never moves and never blinks. Its gaze runs in a straight line
+// in the direction it faces until something with substance stops it: stone
+// (base_solid: walls, candles, levers, seals, shut gates, the door, another
+// warden) or a pushed thing standing in the line (brazier or bone slab) or
+// a slab settled in the river, which stands proud of the water. Open river
+// does NOT stop the stare - it skims the surface. Only the cells before
+// the blocker are lethal; ending your move on one is death. The bell rune
+// freezes the haunting, but it does not blind the wardens.
+static int gaze_dir(char c){ return c == 'V' ? 0 : c == '^' ? 1 : c == '<' ? 2 : c == '>' ? 3 : -1; }
+static int gaze_blocker(int x, int y){
+    if (brazier_at(x, y) >= 0 || block_at(x, y) >= 0) return 1;
+    if (grid[y][x] == '=') return 1; // a settled slab breaks the line
+    if (grid[y][x] == '~') return 0; // open water does not
+    return base_solid(x, y);
+}
+static int in_gaze(int tx, int ty){
+    for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
+        int d = gaze_dir(grid[y][x]);
+        if (d < 0) continue;
+        int cx = x + DX[d], cy = y + DY[d];
+        while (cx >= 0 && cy >= 0 && cx < MW && cy < MH){
+            if (cx == tx && cy == ty) return 1;
+            if (gaze_blocker(cx, cy)) break;
+            cx += DX[d]; cy += DY[d];
+        }
+    }
+    return 0;
+}
+// Where can a pushed thing go? 0 = nowhere, 1 = it slides there,
+// 2 = the red river takes it and leaves a footing behind.
+static int push_dest(int bx, int by){
+    if (bx < 0 || by < 0 || bx >= MW || by >= MH) return 0;
+    if (brazier_at(bx, by) >= 0 || block_at(bx, by) >= 0 || enemy_at(bx, by) >= 0) return 0;
+    char bc = grid[by][bx];
+    if (bc == '~') return 2;
+    if (base_solid(bx, by)) return 0;
+    return (bc == '.' || bc == ',' || bc == 'x' || bc == 'g' || bc == '=') ? 1 : 0;
+}
+
 static void resolve_turn(int dx, int dy, int is_wait){
     player.sx = player.px; player.sy = player.py;
     for (int i = 0; i < num_enemies; i++){ enemies[i].sx = enemies[i].px; enemies[i].sy = enemies[i].py; }
     for (int i = 0; i < num_braziers; i++){ braziers[i].sx = braziers[i].px; braziers[i].sy = braziers[i].py; }
+    for (int i = 0; i < num_blocks; i++){ blocks[i].sx = blocks[i].px; blocks[i].sy = blocks[i].py; }
     pending_died = 0; pending_cleared = 0;
     int go0 = gate_open, to0 = twin_open;
     int moved = is_wait, oil_got = 0;
     if (!is_wait){
         int nx = player.x + dx, ny = player.y + dy;
         player.dir = (dy == 1) ? 0 : (dy == -1) ? 1 : (dx == -1) ? 2 : 3;
-        int bi = brazier_at(nx, ny);
-        if (bi >= 0){
+        int bi = brazier_at(nx, ny), ki = block_at(nx, ny);
+        if (bi >= 0 || ki >= 0){
             int bx = nx + dx, by = ny + dy;
-            char bc = (bx < 0 || by < 0 || bx >= MW || by >= MH) ? '#' : grid[by][bx];
-            if (!base_solid(bx, by) && brazier_at(bx, by) < 0 && enemy_at(bx, by) < 0 &&
-                (bc == '.' || bc == ',' || bc == 'x' || bc == 'g')){
-                braziers[bi].x = bx; braziers[bi].y = by;
+            int pd = push_dest(bx, by);
+            if (pd == 1){
+                if (bi >= 0){ braziers[bi].x = bx; braziers[bi].y = by; }
+                else { blocks[ki].x = bx; blocks[ki].y = by; }
                 player.x = nx; player.y = ny; moved = 1; sfx_push();
+            } else if (pd == 2){
+                // the river takes the weight and gives back a footing
+                if (bi >= 0){ num_braziers--; braziers[bi] = braziers[num_braziers]; }
+                else { num_blocks--; blocks[ki] = blocks[num_blocks]; }
+                grid[by][bx] = '=';
+                player.x = nx; player.y = ny; moved = 1; sfx_fill();
+                set_msg("THE RIVER TAKES IT - A FOOTING HOLDS");
             }
         } else if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || base_solid(nx, ny) || (grid[ny][nx] == 'D' && !door_ready())){
             char tc = (nx < 0 || ny < 0 || nx >= MW || ny >= MH) ? '#' : grid[ny][nx];
@@ -808,6 +887,8 @@ static void resolve_turn(int dx, int dy, int is_wait){
                 if ((level_flags & LF_RUNE) && !rune_used && relics_left == 0) set_msg("WEBBED SHUT - TOLL THE BELL");
                 else if ((level_flags & LF_CANDLES) && relics_left == 0) set_msg("LIGHT EVERY CANDLE FIRST");
                 else if (relics_left > 0) set_msg("GATHER THE RELICS FIRST");
+            } else if (tc == '~'){
+                set_msg("THE RED RIVER RUNS TOO DEEP");
             }
         } else if (enemy_at(nx, ny) >= 0){
             player.x = nx; player.y = ny; moved = 1; pending_died = 1;
@@ -832,6 +913,9 @@ static void resolve_turn(int dx, int dy, int is_wait){
         } else if (c == 'D' && door_ready()){
             pending_cleared = 1; sfx_exit();
         }
+        // the wardens do not blink: end the move in a gaze line and it ends
+        // you (death is checked before the clear in ST_ANIM, so it wins ties)
+        if (in_gaze(player.x, player.y)){ pending_died = 1; set_msg("THE WARDEN'S GAZE FINDS YOU"); }
     }
     if (moved && door_ready() && !door_ready_prev){ sfx_door(); set_msg("THE DOOR UNSEALS"); }
     turn_count++; moves_level++; total_moves++;
@@ -922,6 +1006,11 @@ static void compose_oam(void){
             int b = (reveal_t > 0) ? 3 : light[braziers[i].y][braziers[i].x];
             add_sprite(braziers[i].px, braziers[i].py, 20, b >= 3 ? 0 : (b == 2 ? 1 : 2), 0);
         }
+        // bone slabs (sprite 28): inert weight, shaded like the braziers, no flame
+        for (int i = 0; i < num_blocks; i++){
+            int b = (reveal_t > 0) ? 3 : light[blocks[i].y][blocks[i].x];
+            add_sprite(blocks[i].px, blocks[i].py, 28, b >= 3 ? 0 : (b == 2 ? 1 : 2), 0);
+        }
         // enemies
         for (int i = 0; i < num_enemies; i++){
             Enemy* e = &enemies[i]; if (!e->alive) continue;
@@ -1009,7 +1098,7 @@ static void enter_title(void){
     set_state(ST_TITLE);
 }
 static void draw_intro(void){
-    const Level* L = &LEVELS[level_idx];
+    const Level* L = &GAME_LEVELS[level_idx];
     clear_text();
     put_text_c(2, L->chap, 7);
     char lvbuf[10] = "LEVEL 0";
@@ -1156,10 +1245,15 @@ static void update(void){
             braziers[i].px = braziers[i].sx + (braziers[i].x * 16 - braziers[i].sx) * t / 12;
             braziers[i].py = braziers[i].sy + (braziers[i].y * 16 - braziers[i].sy) * t / 12;
         }
+        for (int i = 0; i < num_blocks; i++){
+            blocks[i].px = blocks[i].sx + (blocks[i].x * 16 - blocks[i].sx) * t / 12;
+            blocks[i].py = blocks[i].sy + (blocks[i].y * 16 - blocks[i].sy) * t / 12;
+        }
         if (state_t >= 12){
             player.px = player.x * 16; player.py = player.y * 16;
             for (int i = 0; i < num_enemies; i++){ enemies[i].px = enemies[i].x * 16; enemies[i].py = enemies[i].y * 16; }
             for (int i = 0; i < num_braziers; i++){ braziers[i].px = braziers[i].x * 16; braziers[i].py = braziers[i].y * 16; }
+            for (int i = 0; i < num_blocks; i++){ blocks[i].px = blocks[i].x * 16; blocks[i].py = blocks[i].y * 16; }
             if (pending_died) start_death();
             else if (pending_cleared){
                 int bonus = 600 - 15 * moves_level; if (bonus < 0) bonus = 0;
@@ -1220,7 +1314,9 @@ static void update(void){
 }
 
 #ifdef QA_BUILD
-#ifdef QA_PASSCODE_TEST
+#ifdef QA_TEST_LEVELS
+#include "qa_test_script.h"
+#elif defined(QA_PASSCODE_TEST)
 #include "qa_passcode_script.h"
 #else
 #include "qa_script.h"
