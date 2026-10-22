@@ -19,6 +19,8 @@ TERRAIN_PALS = [
      "#7A4A2B","#A8743F","#5E1F38","#7E2A4A","#C9962E","#D8CFB8","#4A5E6E","#F0B04A"],  # Belfry midnight
     ["#030309","#0E0A1C","#181030","#241A48","#080614","#2C2054","#3E2E70","#140E2A",
      "#5E3620","#8A5A30","#6E1420","#9E2432","#C9962E","#D8CFB8","#3E4A44","#F0B04A"],  # The Deep Bell
+    ["#0A0505","#201214","#2E1B1E","#422824","#160B0A","#4E2E28","#6A423A","#281618",
+     "#7A4A2B","#A8743F","#8C1A24","#B02A38","#C9962E","#D8CFB8","#6E4A34","#F0B04A"],  # The Ember Deep
 ]
 # Actor palette: 0 transparent, 1 outline, 2 bone, 3 pale, 4 shade, 5 wraith-dark,
 # 6 cloak, 7 cloak-light, 8 hood, 9 skin, a red, b amber, c spider, d spider-mark, e dirty, f glint
@@ -958,7 +960,7 @@ def main():
     lines.append(emit_tiles("SPRITE_TILES", SPRITES))
     lines.append(f"#define NUM_SPRITES {len(SPRITES)}")
     tp = ",\n".join("    {" + ",".join(f"0x{c555(c):04X}" for c in pal) + "}" for pal in TERRAIN_PALS)
-    lines.append(f"static const unsigned short TERRAIN_PALS[4][16] = {{\n{tp}\n}};")
+    lines.append(f"static const unsigned short TERRAIN_PALS[5][16] = {{\n{tp}\n}};")
     lines.append("static const unsigned short ACTOR_PAL[16] = {" +
                  ",".join(f"0x{c555(c):04X}" for c in ACTOR_PAL) + "};")
     ft = font_tiles()

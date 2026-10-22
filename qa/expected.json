@@ -1,7 +1,7 @@
 {
- "total_play_actions": 806,
- "predicted_score": 6910,
- "stream_len": 822,
+ "total_play_actions": 1251,
+ "predicted_score": 10105,
+ "stream_len": 1275,
  "per_level": [
   {
    "level": 1,
@@ -66,14 +66,14 @@
   {
    "level": 11,
    "name": "THE HERDING",
-   "actions": 26,
-   "score": 660
+   "actions": 46,
+   "score": 550
   },
   {
    "level": 12,
    "name": "THE WEAVER'S CLOCK",
-   "actions": 26,
-   "score": 660
+   "actions": 32,
+   "score": 570
   },
   {
    "level": 13,
@@ -84,8 +84,56 @@
   {
    "level": 14,
    "name": "THE DEEP BELL",
-   "actions": 105,
+   "actions": 128,
    "score": 525
+  },
+  {
+   "level": 15,
+   "name": "THE FIRST SENTINEL",
+   "actions": 40,
+   "score": 300
+  },
+  {
+   "level": 16,
+   "name": "THE BONE GATE",
+   "actions": 43,
+   "score": 300
+  },
+  {
+   "level": 17,
+   "name": "THE RED CROSSING",
+   "actions": 33,
+   "score": 455
+  },
+  {
+   "level": 18,
+   "name": "THE CROSSED GAZE",
+   "actions": 36,
+   "score": 560
+  },
+  {
+   "level": 19,
+   "name": "THE WATCHED FORD",
+   "actions": 56,
+   "score": 350
+  },
+  {
+   "level": 20,
+   "name": "THE WATCHED SEALS",
+   "actions": 38,
+   "score": 480
+  },
+  {
+   "level": 21,
+   "name": "THE BORROWED SHIELD",
+   "actions": 44,
+   "score": 450
+  },
+  {
+   "level": 22,
+   "name": "THE LAST EMBER",
+   "actions": 106,
+   "score": 500
   }
  ]
 }

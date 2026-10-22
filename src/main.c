@@ -292,7 +292,7 @@ void* memset(void* d, int v, unsigned n){ volatile u8* dd = (volatile u8*)d; for
 #define LF_RUNE    2   // the door is webbed shut until the bell rune is tolled
 typedef struct { const char* name; const char* chap; int chapter; int radius; int oil; int flags;
                  const char* f1; const char* f2; const char* hint; const char* map[MH]; } Level;
-static const Level LEVELS[14] = {
+static const Level LEVELS[22] = {
 { "CANDLELIT ENTRY", "CHAPTER ONE - THE MANOR", 0, 3, 0, LF_CANDLES,
   "THE MANOR SLEEPS.", "TAKE BACK WHAT WAS STOLEN.",
   "LIGHT THE CANDLE. GATHER THE RELICS.",
@@ -475,6 +475,110 @@ static const Level LEVELS[14] = {
     "#..s....###MM##",
     "#.o...r...2D..#",
     "###############" } },
+{ "THE FIRST SENTINEL", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
+  "IT HAS NOT BLINKED IN AGES.", "NOR WILL IT BLINK FOR YOU.",
+  "CROSS ITS GAZE ONLY BEHIND STONE.",
+  { "###############",
+    "#..C...r......#",
+    "#S............#",
+    "####.##########",
+    "#.....b.....<.#",
+    "##########.####",
+    "#.............#",
+    "#..T......T...#",
+    "#..r.........D#",
+    "###############" } },
+{ "THE BONE GATE", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
+  "THE DEAD HOLD THE DOOR SHUT.", "MOVE THEM ASIDE - GENTLY.",
+  "A SLAB IN A CORNER IS LOST.",
+  { "###############",
+    "#S....C#..#r..#",
+    "#......#..G...#",
+    "#......#..#####",
+    "#......b......#",
+    "#......#..k...#",
+    "#......#......#",
+    "#..r...#.b.g..#",
+    "#......#.....D#",
+    "###############" } },
+{ "THE RED CROSSING", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, LF_CANDLES,
+  "THE RIVER REMEMBERS", "EVERY CROSSING.",
+  "FEED THE RIVER A WEIGHT FOR A ROAD.",
+  { "###############",
+    "#S.....~.C....#",
+    "#......~....r.#",
+    "#......~......#",
+    "#...B..~.....r#",
+    "#......~......#",
+    "#......~..~~.C#",
+    "#.B....~..~~..#",
+    "#......~.....D#",
+    "###############" } },
+{ "THE CROSSED GAZE", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, LF_CANDLES,
+  "THEIR EYES MEET", "WHERE THE GOLD SLEEPS.",
+  "TWO EYES. TWO SHIELDS. CARRY BOTH WELL.",
+  { "###############",
+    "#r...........D#",
+    "#.............#",
+    "#.C..........r#",
+    "#....b.......<#",
+    "#S............#",
+    "#.......w....C#",
+    "#..........B..#",
+    "#>...........r#",
+    "###############" } },
+{ "THE WATCHED FORD", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, LF_CANDLES,
+  "THE RIVER IS WATCHED.", "CROSS QUICKLY, CARRY STONE.",
+  "A SLAB IN THE RIVER. A SLAB IN THE GAZE.",
+  { "###############",
+    "#r..C..~......#",
+    "#......~r....<#",
+    "#......~......#",
+    "#S.b...~......#",
+    "#......~.k..C.#",
+    "#......~......#",
+    "#......~..b...#",
+    "#......~.....D#",
+    "###############" } },
+{ "THE WATCHED SEALS", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
+  "THREE SEALS TURN", "UNDER ONE UNBLINKING EYE.",
+  "TURN EACH SEAL FROM BEHIND THE SLAB.",
+  { "###############",
+    "#S....r.#######",
+    "#........1.2..#",
+    "#..b.........<#",
+    "#............3#",
+    "#.............#",
+    "#.............#",
+    "#..w...M....r.#",
+    "#......D....r.#",
+    "###############" } },
+{ "THE BORROWED SHIELD", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
+  "YOUR SHIELD IS ALSO THE KEY.", "",
+  "PUSH YOUR COVER ONTO THE PLATE.",
+  { "###############",
+    "#r..........###",
+    "#...........GD#",
+    "#...........###",
+    "#S...b.....g<.#",
+    "#.............#",
+    "#........w....#",
+    "#.............#",
+    "#..r........r.#",
+    "###############" } },
+{ "THE LAST EMBER", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 95, LF_CANDLES | LF_RUNE,
+  "EVERY LESSON, ONE ROOM.", "THE DEEP GIVES NOTHING BACK.",
+  "SEALS, STONE, AND THE RED ROAD HOME.",
+  { "###############",
+    "#r..........r.#",
+    "#.1..C....2...#",
+    "#S..B.....b...#",
+    "#.............#",
+    "#~~~~~~~~~~~~~#",
+    "#..w..r..C.o..#",
+    "#..3.R.......M#",
+    "#>...........D#",
+    "###############" } },
 };
 // QA-only alternate level set (mechanics test rooms) - never in release builds.
 #ifdef QA_TEST_LEVELS
@@ -483,7 +587,7 @@ static const Level LEVELS[14] = {
 #define NUM_LEVELS TEST_NUM_LEVELS
 #else
 #define GAME_LEVELS LEVELS
-#define NUM_LEVELS 14
+#define NUM_LEVELS 22
 #endif
 
 // ---------------- passcodes ----------------
@@ -1101,9 +1205,10 @@ static void draw_intro(void){
     const Level* L = &GAME_LEVELS[level_idx];
     clear_text();
     put_text_c(2, L->chap, 7);
-    char lvbuf[10] = "LEVEL 0";
-    if (level_idx < 9) lvbuf[6] = (char)('1' + level_idx);
-    else { lvbuf[6] = '1'; lvbuf[7] = (char)('0' + (level_idx - 9)); lvbuf[8] = 0; }
+    char lvbuf[12] = "LEVEL ";
+    { int ln = level_idx + 1, lp = 6;
+      if (ln >= 10) lvbuf[lp++] = (char)('0' + ln / 10);
+      lvbuf[lp++] = (char)('0' + ln % 10); lvbuf[lp] = 0; }
     put_text_c(4, lvbuf, 5);
     put_text_c(6, L->name, 4);
     put_text_c(9, L->f1, 4);
@@ -1172,7 +1277,7 @@ static void draw_hud(void){
     int v = score; for (int i = 9; i >= 4; i--){ line[i] = (char)('0' + (v % 10)); v /= 10; }
     line[12] = 'L'; line[13] = 'V';
     if (level_idx < 9) line[15] = (char)('1' + level_idx);
-    else { line[15] = '1'; line[16] = (char)('0' + (level_idx - 9)); }
+    else { int ln = level_idx + 1; line[15] = (char)('0' + ln / 10); line[16] = (char)('0' + ln % 10); }
     line[18] = 'R'; line[20] = (char)('0' + (relics_total - relics_left)); line[21] = '/'; line[22] = (char)('0' + relics_total);
     line[24] = 'O'; line[25] = 'I'; line[26] = 'L';
     if (oil_budget > 0){ line[28] = (char)('0' + (oil_left / 10)); line[29] = (char)('0' + (oil_left % 10)); }
