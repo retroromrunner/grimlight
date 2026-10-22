@@ -1,7 +1,7 @@
 {
- "total_play_actions": 1883,
- "predicted_score": 14080,
- "stream_len": 1915,
+ "total_play_actions": 1896,
+ "predicted_score": 14050,
+ "stream_len": 1928,
  "per_level": [
   {
    "level": 1,
@@ -120,8 +120,8 @@
   {
    "level": 20,
    "name": "THE WATCHED SEALS",
-   "actions": 38,
-   "score": 480
+   "actions": 50,
+   "score": 450
   },
   {
    "level": 21,
@@ -138,13 +138,13 @@
   {
    "level": 23,
    "name": "THE TWIN BELLS",
-   "actions": 55,
+   "actions": 52,
    "score": 500
   },
   {
    "level": 24,
    "name": "THE EMBER STAIR",
-   "actions": 77,
+   "actions": 81,
    "score": 525
   },
   {

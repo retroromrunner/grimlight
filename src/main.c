@@ -212,10 +212,27 @@ static void noise_hit(int vol, int frames, int rough){
     SND(0x1C) = (u16)((rough ? 0x0080 : 0) | 0x8000 | 8);
     (void)frames;
 }
-// music sequencer: 64 steps, chords Am F Dm E (Andalusian descent)
-static const s8 CHORD_ROOT[4] = {45, 41, 38, 40};
-static const s8 CHORD_TONES[4][4] = { {57,60,64,69}, {53,57,60,65}, {50,53,57,62}, {52,56,59,64} };
-static const s8 LEAD_PAT[16] = {0,-1,1,-1,2,-1,3,-1, 2,-1,1,2,-1,-1,1,-1};
+// music: three songs in one format - a 64-step loop of 4 chords x 16 steps,
+// each chord a bass root, four lead tones, and a 16-step lead pattern (the
+// sequencer below plays root + fifth bass, a root bell, and the lead line).
+// Song 0: the manor theme (chapters one-four). Song 1: the ember deep
+// (chapter five) - Gm Cm F Bb, a slower, sparser lament for the river and
+// the wardens. Song 2: the molten choir (chapter six) - Em G D A, a faster,
+// denser drive for the finale.
+static const s8 CHORD_ROOT[3][4] = {
+    {45, 41, 38, 40},
+    {43, 36, 41, 46},
+    {40, 43, 38, 45} };
+static const s8 CHORD_TONES[3][4][4] = {
+    { {57,60,64,69}, {53,57,60,65}, {50,53,57,62}, {52,56,59,64} },
+    { {55,58,62,67}, {55,60,63,67}, {53,57,60,65}, {58,62,65,70} },
+    { {52,55,59,64}, {55,59,62,67}, {50,54,57,62}, {57,61,64,69} } };
+static const s8 LEAD_PAT[3][16] = {
+    {0,-1,1,-1,2,-1,3,-1, 2,-1,1,2,-1,-1,1,-1},
+    {2,-1,-1,1,-1,-1,0,-1, 3,-1,-1,2,-1,-1,1,-1},
+    {0,-1,1,2,3,-1,2,1, 0,1,-1,2,3,2,-1,1} };
+static const s8 MUS_TEMPO[3] = {7, 8, 6}; // frames per sixteenth, per song
+static int cur_song = 0;
 // exit fanfare: a bright square-wave victory figure on the lead channel, bells beneath
 static const s8 FANF_NOTES[8] = {69, 73, 76, 81, 76, 81, 85, 88};
 static int mus_step = 0, mus_timer = 0, sfx_duck = 0;
@@ -246,13 +263,13 @@ static void audio_update(void){
     }
     if (sfx_duck > 0) sfx_duck--;
     if (--mus_timer > 0) return;
-    mus_timer = 7; // ~128bpm sixteenths
+    mus_timer = MUS_TEMPO[cur_song]; // frames per sixteenth, per song
     int chord = (mus_step >> 4) & 3, st = mus_step & 15;
-    if (st == 0){ bell_toll(CHORD_ROOT[chord] + 24, 1); sq_note(2, CHORD_ROOT[chord], 9, 2, 100); }
-    if (st == 8) sq_note(2, CHORD_ROOT[chord] + 7, 7, 2, 50);
+    if (st == 0){ bell_toll(CHORD_ROOT[cur_song][chord] + 24, 1); sq_note(2, CHORD_ROOT[cur_song][chord], 9, 2, 100); }
+    if (st == 8) sq_note(2, CHORD_ROOT[cur_song][chord] + 7, 7, 2, 50);
     if (st == 0 || st == 4 || st == 8 || st == 12) { /* harmony pulse on ch2 handled above */ }
-    s8 li = LEAD_PAT[st];
-    if (li >= 0 && sfx_duck <= 0) sq_note(1, CHORD_TONES[chord][li], 6, 1, 20);
+    s8 li = LEAD_PAT[cur_song][st];
+    if (li >= 0 && sfx_duck <= 0) sq_note(1, CHORD_TONES[cur_song][chord][li], 6, 1, 20);
     mus_step = (mus_step + 1) & 63;
 }
 // SFX (duck the lead briefly so they read clearly)
@@ -263,6 +280,7 @@ static void sfx_dissolve(void){ noise_hit(8, 12, 0); sq_note(1, 40, 9, 0, 16); s
 static void sfx_unlock(void){ sq_note(1, 76, 10, 2, 10); sfx_duck = 14; bell_toll(69, 2); }
 static void sfx_sting(void){ sq_note(1, 46, 13, 3, 30); sq_note(2, 45, 13, 3, 30); noise_hit(10, 20, 1); sfx_duck = 30; }
 static void sfx_bell(void){ bell_toll(57, 1); bell_toll(69, 2); noise_hit(3, 10, 0); sfx_duck = 8; }
+static void sfx_warp(void){ sq_note(1, 88, 12, 2, 14); sq_note(2, 81, 11, 2, 14); bell_toll(88, 1); sfx_duck = 12; } // the warp bell: a bright two-note chime as the twin bell rings you through
 static void sfx_toggle(void){ sq_note(1, 72, 8, 1, 8); sfx_duck = 6; }
 static void sfx_gate(void){ noise_hit(7, 10, 1); sq_note(1, 41, 9, 3, 16); sfx_duck = 8; }
 static void sfx_lever(void){ noise_hit(9, 8, 1); sq_note(1, 50, 11, 3, 12); bell_toll(81, 3); sfx_duck = 10; }
@@ -558,7 +576,7 @@ static const Level LEVELS[30] = {
     "#.............#",
     "#.............#",
     "#..w...M....r.#",
-    "#......D....r.#",
+    "#.....#D#...r.#",
     "###############" } },
 { "THE BORROWED SHIELD", "CHAPTER FIVE - THE EMBER DEEP", 4, 3, 0, 0,
   "YOUR SHIELD IS ALSO THE KEY.", "",
@@ -593,10 +611,10 @@ static const Level LEVELS[30] = {
     "#S.....~....O.#",
     "#..I.r.~.w...C#",
     "#......~......#",
-    "#..B...~.....r#",
+    "#......~.....r#",
     "#.....C~..kb.L#",
     "#....w.~.##...#",
-    "#......~#rA...#",
+    "#......~#rA..##",
     "#.O....~.##gGD#",
     "###############" } },
 { "THE EMBER STAIR", "CHAPTER SIX - THE MOLTEN CHOIR", 5, 3, 0, LF_CANDLES,
@@ -606,7 +624,7 @@ static const Level LEVELS[30] = {
     "#S...........D#",
     "#.C.........r.#",
     "#.............#",
-    "#.eeeeeyeeeee.#",
+    "#eeeeeeyeeeeee#",
     "#.............#",
     "#........w....#",
     "#...b.....B.Cr#",
@@ -813,6 +831,8 @@ static u8 gaze_map[MH][MW];       // per-render gaze cache, filled once per rend
 static void compute_gaze_map(void); // defined with the gaze logic below
 static void load_level(int idx){
     const Level* L = &GAME_LEVELS[idx];
+    { int song = (L->chapter == 4) ? 1 : (L->chapter == 5) ? 2 : 0;   // chapter five/six get their own music
+      if (song != cur_song){ cur_song = song; mus_step = 0; mus_timer = 0; } }
     num_enemies = 0; num_braziers = 0; num_blocks = 0; relics_left = 0; num_portals = 0;
     for (int y = 0; y < MH; y++) for (int x = 0; x < MW; x++){
         char c = L->map[y][x];
@@ -1173,7 +1193,7 @@ static void resolve_turn(int dx, int dy, int is_wait){
             if (brazier_at(tx, ty) < 0 && block_at(tx, ty) < 0){
                 player.x = tx; player.y = ty;
                 player.px = player.sx = tx * 16; player.py = player.sy = ty * 16;
-                sfx_bell(); set_msg("THE TWIN BELL RINGS");
+                sfx_warp(); set_msg("THE TWIN BELL RINGS");
             }
         }
         // crumbling floor: the cell the keeper just left falls to the void
@@ -1370,6 +1390,7 @@ static void draw_title_bg(void){
 }
 static void enter_title(void){
     score = 0; deaths = 0; total_moves = 0; level_idx = 0;
+    if (cur_song != 0){ cur_song = 0; mus_step = 0; mus_timer = 0; } // the title plays the manor theme, as always
     fade_scale = 16; fade_red = 0;
     draw_title_bg();
     clear_text();
@@ -1645,6 +1666,7 @@ static void qa_report(void){
     unsigned int sum = 0; for (int i = 2; i <= 13; i++) sum += s[i];
     s[14] = (unsigned char)(sum & 0xFF);
     s[15] = 0xA5;
+    s[23] = (unsigned char)cur_song; // QA only: which song the sequencer is playing
 }
 #endif
 
