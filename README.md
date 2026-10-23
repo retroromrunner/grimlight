@@ -6,7 +6,7 @@
 
 On Halloween night, the Hollow Bell of Grimlight Manor tolls for the dead — and something has stolen the manor's soul relics. You are the last lantern-keeper. Cross the manor, the crypt, and the belfry, descend to the Deep Bell, then push deeper still — into the Ember Deep and the Molten Choir — recover every relic, ring the bell, and lay the haunting to rest.
 
-![Gameplay — Candlelit Entry](media/gameplay-manor.png)
+![Animated gameplay — Level 1, then the Molten Choir](media/gameplay-animated.gif)
 
 ## How it plays
 
